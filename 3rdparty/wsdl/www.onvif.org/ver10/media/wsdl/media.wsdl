@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <?xml-stylesheet type="text/xsl" href="../../../ver20/util/onvif-wsdl-viewer.xsl"?>
 <!--
-Copyright (c) 2008-2024 by ONVIF: Open Network Video Interface Forum. All rights reserved.
+Copyright (c) 2008-2015 by ONVIF: Open Network Video Interface Forum. All rights reserved.
 
 Recipients of this document may copy, distribute, publish, or display this document so long as this copyright notice, license and disclaimer are retained with all copies of the document. No license is granted to modify this document.
 
@@ -10,7 +10,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 -->
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:trt="http://www.onvif.org/ver10/media/wsdl" targetNamespace="http://www.onvif.org/ver10/media/wsdl">
 	<wsdl:types>
-		<xs:schema targetNamespace="http://www.onvif.org/ver10/media/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" version="21.06">
+		<xs:schema targetNamespace="http://www.onvif.org/ver10/media/wsdl" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" version="17.06">
 			<xs:import namespace="http://www.onvif.org/ver10/schema" schemaLocation="../../../ver10/schema/onvif.xsd"/>
 			<!--  Message Request/Responses elements  -->
 			<!--===============================-->
@@ -210,7 +210,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 					<xs:sequence>
 						<xs:element name="ProfileToken" type="tt:ReferenceToken">
 							<xs:annotation>
-								<xs:documentation>This command requests a specific profile.</xs:documentation>
+								<xs:documentation>this command requests a specific profile</xs:documentation>
 							</xs:annotation>
 						</xs:element>
 					</xs:sequence>
@@ -221,7 +221,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 					<xs:sequence>
 						<xs:element name="Profile" type="tt:Profile">
 							<xs:annotation>
-								<xs:documentation>Returns the requested media profile.</xs:documentation>
+								<xs:documentation>returns the requested media profile</xs:documentation>
 							</xs:annotation>
 						</xs:element>
 					</xs:sequence>
@@ -1587,7 +1587,7 @@ AudioOutputConfiguration shall be removed.</xs:documentation>
 					<xs:sequence>
 						<xs:element name="StreamSetup" type="tt:StreamSetup">
 							<xs:annotation>
-								<xs:documentation>Stream Setup that should be used with the uri.</xs:documentation>
+								<xs:documentation>Stream Setup that should be used with the uri</xs:documentation>
 							</xs:annotation>
 						</xs:element>
 						<xs:element name="ProfileToken" type="tt:ReferenceToken">
@@ -1738,6 +1738,13 @@ AudioOutputConfiguration shall be removed.</xs:documentation>
 				</xs:complexType>
 			</xs:element>
 			<!--===============================-->
+			<xs:simpleType name="EncodingTypes">
+				<xs:annotation>
+					<xs:documentation>Indication which encodings are supported for this video source. The list may contain one or more enumeration values of tt:VideoEncoding.</xs:documentation>
+				</xs:annotation>
+				<xs:list itemType="xs:string"/>
+			</xs:simpleType>
+			<!--===============================-->
 			<xs:complexType name="VideoSourceMode"> 
 				<xs:sequence>
 					<xs:element name="MaxFramerate" type="xs:float">
@@ -1750,7 +1757,7 @@ AudioOutputConfiguration shall be removed.</xs:documentation>
 							<xs:documentation>Max horizontal and vertical resolution for this video source mode.</xs:documentation>
 						</xs:annotation>
 					</xs:element>
-					<xs:element name="Encodings" type="tt:StringList">
+					<xs:element name="Encodings" type="trt:EncodingTypes">
 						<xs:annotation>
 							<xs:documentation>Indication which encodings are supported for this video source. The list may contain one or more enumeration values of tt:VideoEncoding.</xs:documentation>
 						</xs:annotation>
@@ -2429,7 +2436,7 @@ AudioOutputConfiguration shall be removed.</xs:documentation>
 		<!--===============================-->
 		<wsdl:operation name="CreateProfile">
 			<wsdl:documentation>This operation creates a new empty media profile. The media profile shall be created in the
-device and shall be persistent (remain after reboot). A created profile shall be deletable and a device shall set the "fixed" attribute to false in the
+device and shall be persistent (remain after reboot). A created profile shall be deletable and a device shall set the “fixed” attribute to false in the
 returned Profile.</wsdl:documentation>
 			<wsdl:input message="trt:CreateProfileRequest"/>
 			<wsdl:output message="trt:CreateProfileResponse"/>
@@ -2828,7 +2835,8 @@ accordingly (ValidUntilConnect=false, ValidUntilReboot=false, timeout=PT0S). <br
 					<li>RTP over RTSP over TCP: StreamType = "RTP_unicast", TransportProtocol = "RTSP"</li>
 				</ol>
 				<br/>
-If a multicast stream is requested at least one of VideoEncoderConfiguration, AudioEncoderConfiguration and MetadataConfiguration shall have a valid multicast setting.<br/>
+If a multicast stream is requested the VideoEncoderConfiguration, AudioEncoderConfiguration and MetadataConfiguration element inside the corresponding 
+media profile must be configured with valid multicast settings.<br/>
 For full compatibility with other ONVIF services a device should not generate Uris longer than
 128 octets.</wsdl:documentation>
 			<wsdl:input message="trt:GetStreamUriRequest"/>
@@ -2869,7 +2877,7 @@ the PTZ position shall be repeated within the metadata stream.</wsdl:documentati
 device. The returned URI shall remain valid indefinitely even if the profile is changed. The
 ValidUntilConnect, ValidUntilReboot and Timeout Parameter shall be set accordingly
 (ValidUntilConnect=false, ValidUntilReboot=false, timeout=PT0S). The URI can be used for
-acquiring a JPEG image through an HTTP GET operation. The image encoding will always be
+acquiring a JPEG image through a HTTP GET operation. The image encoding will always be
 JPEG regardless of the encoding setting in the media profile. The Jpeg settings
 (like resolution or quality) may be taken from the profile if suitable. The provided
 image will be updated automatically and independent from calls to GetSnapshotUri.</wsdl:documentation>

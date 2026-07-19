@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?xml-stylesheet type="text/xsl" href="../../../ver20/util/onvif-wsdl-viewer.xsl"?>
 <!--
-Copyright (c) 2008-2019 by ONVIF: Open Network Video Interface Forum. All rights reserved.
+Copyright (c) 2008-2014 by ONVIF: Open Network Video Interface Forum. All rights reserved.
 
 Recipients of this document may copy, distribute, publish, or display this document so long as this copyright notice, license and disclaimer are retained with all copies of the document. No license is granted to modify this document.
 
@@ -10,7 +10,7 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 -->
 <wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:tt="http://www.onvif.org/ver10/schema" name="ImagingService" targetNamespace="http://www.onvif.org/ver20/imaging/wsdl">
 	<wsdl:types>
-		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" targetNamespace="http://www.onvif.org/ver20/imaging/wsdl" elementFormDefault="qualified" version="19.06">
+		<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:tt="http://www.onvif.org/ver10/schema" xmlns:timg="http://www.onvif.org/ver20/imaging/wsdl" targetNamespace="http://www.onvif.org/ver20/imaging/wsdl" elementFormDefault="qualified" version="16.09">
 			<xs:import namespace="http://www.onvif.org/ver10/schema" schemaLocation="../../../ver10/schema/onvif.xsd"/>
 			<!--  Message Request/Responses elements  -->
 			<!--===============================-->
@@ -37,18 +37,12 @@ IN NO EVENT WILL THE CORPORATION OR ITS MEMBERS OR THEIR AFFILIATES BE LIABLE FO
 				</xs:sequence>
 				<xs:attribute name="ImageStabilization" type="xs:boolean">
 					<xs:annotation>
-						<xs:documentation>Indicates whether or not Image Stabilization feature is supported.
-						The use of this capability is deprecated, a client should use GetOption to find out if image stabilization is supported.</xs:documentation>
+						<xs:documentation>Indicates whether or not Image Stabilization feature is supported.</xs:documentation>
 					</xs:annotation>
 				</xs:attribute>
 				<xs:attribute name="Presets" type="xs:boolean">
 					<xs:annotation>
 						<xs:documentation>Indicates whether or not Imaging Presets feature is supported.</xs:documentation>
-					</xs:annotation>
-				</xs:attribute>
-				<xs:attribute name="AdaptablePreset" type="xs:boolean">
-					<xs:annotation>
-						<xs:documentation>Indicates whether or not imaging preset settings can be updated.</xs:documentation>
 					</xs:annotation>
 				</xs:attribute>
 				<xs:anyAttribute processContents="lax"/>
