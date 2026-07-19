@@ -15,37 +15,45 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 import net.meijn.onvifviewer 1.0
-import org.kde.kirigami 2.6 as Kirigami
-import QtQuick 2.9
-import QtQuick.Controls 2.3 as QQC2
-import QtQuick.Layouts 1.3
+import org.kde.kirigami as Kirigami
+import QtQuick
+import QtQuick.Controls as QQC2
+import QtQuick.Layouts
+import QtQuick.Window
 
 Kirigami.Page {
     property OnvifDevice selectedDevice: deviceManager.at(selectedIndex)
 
     title: selectedDevice.deviceName || i18n("Camera %1", selectedIndex + 1)
-    actions {
-        main: Kirigami.Action {
+    actions: [
+        Kirigami.Action {
             text: i18nc("opens pan/tilt/zoom overlay", "Move")
             visible: selectedDevice.isPanTiltSupported || selectedDevice.isZoomSupported
-            iconName: "transform-move"
+            icon.name: "transform-move"
             onTriggered: {
-                ptzOverlay.sheetOpen = !ptzOverlay.sheetOpen
+                if (ptzOverlay.visible) ptzOverlay.close(); else ptzOverlay.open()
             }
-        }
-        right: Kirigami.Action {
+        },
+        Kirigami.Action {
             text: i18nc("opens device information overlay", "Device information")
-            iconName: "help-about"
+            icon.name: "help-about"
             onTriggered: {
-                deviceInformation.sheetOpen = !deviceInformation.sheetOpen
+                if (deviceInformation.visible) deviceInformation.close(); else deviceInformation.open()
+            }
+        },
+        Kirigami.Action {
+            readonly property bool isFullScreen: applicationWindow().visibility === Window.FullScreen
+            text: isFullScreen ? i18nc("leave fullscreen", "Exit fullscreen") : i18nc("enter fullscreen", "Fullscreen")
+            icon.name: isFullScreen ? "view-restore" : "view-fullscreen"
+            onTriggered: {
+                applicationWindow().visibility = isFullScreen ? Window.Windowed : Window.FullScreen
             }
         }
-    }
+    ]
     Kirigami.OverlaySheet {
         id: ptzOverlay
         RowLayout {
             spacing: Kirigami.Units.gridUnit
-            anchors.verticalCenter: parent.verticalCenter
             Rectangle {
                 Layout.fillWidth: true
             }
@@ -54,8 +62,8 @@ Kirigami.Page {
                 columns: 3
 
                 QQC2.ToolButton {
-                    Layout.row: 1
-                    Layout.column: 2
+                    Layout.row: 0
+                    Layout.column: 1
                     icon.name: "go-up"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
@@ -64,8 +72,8 @@ Kirigami.Page {
                     }
                 }
                 QQC2.ToolButton {
-                    Layout.row: 2
-                    Layout.column: 1
+                    Layout.row: 1
+                    Layout.column: 0
                     icon.name: "go-previous"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
@@ -74,8 +82,8 @@ Kirigami.Page {
                     }
                 }
                 QQC2.ToolButton {
-                    Layout.row: 2
-                    Layout.column: 2
+                    Layout.row: 1
+                    Layout.column: 1
                     visible: selectedDevice.isPtzHomeSupported
                     icon.name: "go-home"
                     icon.width: Kirigami.Units.iconSizes.medium
@@ -89,8 +97,8 @@ Kirigami.Page {
                     }
                 }
                 QQC2.ToolButton {
-                    Layout.row: 2
-                    Layout.column: 3
+                    Layout.row: 1
+                    Layout.column: 2
                     icon.name: "go-next"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
@@ -99,8 +107,8 @@ Kirigami.Page {
                     }
                 }
                 QQC2.ToolButton {
-                    Layout.row: 3
-                    Layout.column: 2
+                    Layout.row: 2
+                    Layout.column: 1
                     icon.name: "go-down"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
@@ -137,7 +145,6 @@ Kirigami.Page {
         id: deviceInformation
         GridLayout {
             columns: 2
-            anchors.margins: Kirigami.Units.gridUnit / 2
 
             Kirigami.Heading {
                 text: i18n("Device information")
@@ -213,19 +220,18 @@ Kirigami.Page {
                 }
             }
         }
-        Column{
+        Kirigami.PlaceholderMessage {
             visible: selectedDevice.errorString
             Layout.fillHeight: true
             Layout.fillWidth: true
-            Text {
-                id: errorText
-                text: selectedDevice.errorString ? i18n("An error occurred during communication with the camera.\n\nTechnical details: %1\n", selectedDevice.errorString) : ""
-                wrapMode: Text.Wrap
-                width: parent.width
-            }
-            QQC2.ToolButton {
+            Layout.alignment: Qt.AlignCenter
+            icon.name: "network-disconnect"
+            text: i18n("Cannot reach the camera")
+            explanation: selectedDevice.errorString ? i18n("Technical details: %1", selectedDevice.errorString) : ""
+            helpfulAction: Kirigami.Action {
+                text: i18nc("retry connecting to the camera", "Reconnect")
                 icon.name: "view-refresh"
-                onClicked: {
+                onTriggered: {
                     selectedDevice.reconnectToDevice()
                 }
             }
@@ -238,6 +244,24 @@ Kirigami.Page {
             visible: !selectedDevice.errorString
             Layout.fillHeight: true
             Layout.fillWidth: true
+
+            // Live status pill over the video (top-left).
+            Rectangle {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                anchors.margins: Kirigami.Units.smallSpacing
+                radius: Kirigami.Units.smallSpacing
+                color: Qt.rgba(0, 0, 0, 0.55)
+                visible: viewerItem.visible
+                implicitWidth: statusBadge.implicitWidth + Kirigami.Units.largeSpacing
+                implicitHeight: statusBadge.implicitHeight + Kirigami.Units.smallSpacing
+                CameraStatusBadge {
+                    id: statusBadge
+                    anchors.centerIn: parent
+                    errorString: selectedDevice.errorString
+                    isLive: !selectedDevice.errorString && String(selectedDevice.streamUri).length > 0
+                }
+            }
         }
     }
 }

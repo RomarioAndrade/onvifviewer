@@ -16,12 +16,22 @@
  */
 #include "onvifsnapshotdownloader.h"
 
+#include <QAuthenticator>
+#include <QNetworkRequest>
+
 OnvifSnapshotDownloader::OnvifSnapshotDownloader(QObject* parent) : QObject(parent)
 {
     m_downloadTimer.setInterval(1000);
     m_downloadTimer.setSingleShot(true);
     connect(&m_downloadTimer, &QTimer::timeout, this, &OnvifSnapshotDownloader::startDownload);
     connect(&m_networkAccessManager, &QNetworkAccessManager::finished, this, &OnvifSnapshotDownloader::networkRequestFinished);
+    connect(&m_networkAccessManager, &QNetworkAccessManager::authenticationRequired, this, &OnvifSnapshotDownloader::provideAuthentication);
+}
+
+void OnvifSnapshotDownloader::setCredentials(const QString& userName, const QString& password)
+{
+    m_userName = userName;
+    m_password = password;
 }
 
 void OnvifSnapshotDownloader::setSnapshotUri(const QUrl& snapshotUri)
@@ -32,11 +42,41 @@ void OnvifSnapshotDownloader::setSnapshotUri(const QUrl& snapshotUri)
 
 void OnvifSnapshotDownloader::startDownload()
 {
+    if (m_snapshotUri.isEmpty()) {
+        return;
+    }
     if (m_networkReply) {
         m_networkReply->abort();
     }
     QNetworkRequest request(m_snapshotUri);
+    // Don't let a stalled camera keep the request (and the "Loading…" state) open forever.
+    request.setTransferTimeout(10000);
     m_networkReply = m_networkAccessManager.get(request);
+}
+
+void OnvifSnapshotDownloader::provideAuthentication(QNetworkReply* reply, QAuthenticator* authenticator)
+{
+    // The snapshot endpoint often demands HTTP Basic/Digest authentication.
+    // Qt handles the challenge scheme; we only need to supply the credentials.
+    // Only answer once per reply, otherwise wrong credentials would loop forever
+    // instead of failing with AuthenticationRequiredError.
+    if (reply->property("authenticationTried").toBool()) {
+        return;
+    }
+    reply->setProperty("authenticationTried", true);
+
+    QString userName = m_userName;
+    QString password = m_password;
+    // Fall back to credentials embedded in the snapshot URL, if any.
+    if (userName.isEmpty() && !m_snapshotUri.userName().isEmpty()) {
+        userName = m_snapshotUri.userName();
+        password = m_snapshotUri.password();
+    }
+    if (userName.isEmpty()) {
+        return;
+    }
+    authenticator->setUser(userName);
+    authenticator->setPassword(password);
 }
 
 void OnvifSnapshotDownloader::networkRequestFinished(QNetworkReply* reply)
@@ -47,6 +87,8 @@ void OnvifSnapshotDownloader::networkRequestFinished(QNetworkReply* reply)
         bool result = m_snapshot.loadFromData(downloadedData);
         if (!result) {
             setError("Failed to load snapshot");
+        } else {
+            setError(QString());
         }
         emit snapshotChanged(m_snapshot);
     } else {
@@ -79,6 +121,9 @@ void OnvifSnapshotDownloader::setInterval(QObject* key, int interval)
 
 void OnvifSnapshotDownloader::setError(const QString& error)
 {
+    if (m_error == error) {
+        return;
+    }
     m_error = error;
     emit errorChanged(m_error);
 }

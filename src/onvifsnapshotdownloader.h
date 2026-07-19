@@ -38,6 +38,8 @@ public:
 
     void setInterval(QObject* key, int interval);
 
+    void setCredentials(const QString& userName, const QString& password);
+
 signals:
     void snapshotChanged(const QPixmap& snapshot);
     void errorChanged(const QString& error);
@@ -48,6 +50,7 @@ public slots:
 private slots:
     void startDownload();
     void networkRequestFinished(QNetworkReply* reply);
+    void provideAuthentication(QNetworkReply* reply, QAuthenticator* authenticator);
 
 private:
     void setError(const QString& error);
@@ -59,6 +62,8 @@ private:
     QPointer<QNetworkReply> m_networkReply;
     QPixmap m_snapshot;
     QString m_error;
+    QString m_userName;
+    QString m_password;
     QMap<QObject*, int> m_intervalMap;
 };
 

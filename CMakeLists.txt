@@ -33,7 +33,7 @@ if(GIT_FOUND)
     endif()
 endif()
 
-SET(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 set(CMAKE_AUTOMOC ON)
@@ -43,22 +43,20 @@ include(FeatureSummary)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 find_package(Gettext 0.19 REQUIRED)
-find_package(ECM 5.44.0 REQUIRED NO_MODULE)
+find_package(ECM 5.240.0 REQUIRED NO_MODULE)
 set_package_properties(ECM PROPERTIES TYPE REQUIRED DESCRIPTION "Extra CMake Modules." URL "https://projects.kde.org/projects/kdesupport/extra-cmake-modules")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ECM_MODULE_PATH})
-find_package(KDSoap 1.8.0 REQUIRED)
-set_package_properties(KDSoap PROPERTIES DESCRIPTION "A Qt-based client-side and server-side SOAP component" URL "http://www.kdab.com/products/kd-soap" TYPE REQUIRED PURPOSE "Support for SOAP client protocol")
-find_package(KF5 5.44 REQUIRED CoreAddons I18n)
-find_package(KF5Kirigami2 5.52 REQUIRED)
-find_package(Qt5 5.12.0 REQUIRED NO_MODULE COMPONENTS Core Svg Qml Quick QuickControls2 Xml)
-set_package_properties(Qt5 PROPERTIES DESCRIPTION "The Qt5 framework" URL "http://www.qt.io" TYPE REQUIRED)
-find_package(KDSoapWSDiscoveryClient 0.1)
+find_package(KDSoap-qt6 2.0.0 REQUIRED)
+set_package_properties(KDSoap-qt6 PROPERTIES DESCRIPTION "A Qt-based client-side and server-side SOAP component" URL "http://www.kdab.com/products/kd-soap" TYPE REQUIRED PURPOSE "Support for SOAP client protocol")
+find_package(KF6 6.0.0 REQUIRED CoreAddons I18n)
+find_package(KF6Kirigami 6.0.0 REQUIRED)
+find_package(Qt6 6.4.0 REQUIRED NO_MODULE COMPONENTS Core Svg Qml Quick QuickControls2 Xml)
+set_package_properties(Qt6 PROPERTIES DESCRIPTION "The Qt6 framework" URL "http://www.qt.io" TYPE REQUIRED)
+find_package(KDSoapWSDiscoveryClient 0.4)
 set_package_properties(KDSoapWSDiscoveryClient PROPERTIES DESCRIPTION "KDSoap WS-Discovery client" URL "https://gitlab.com/caspermeijn/kdsoap-ws-discovery-client" TYPE OPTIONAL)
-find_package(QtAV 1.12.0)
-set_package_properties(QtAV PROPERTIES DESCRIPTION "QtAV Multimedia library" URL "https://github.com/wang-bin/QtAV" TYPE OPTIONAL)
 
 if(NOT ANDROID)
-    find_package(KF5 5.44 REQUIRED XmlGui)
+    find_package(KF6 6.0.0 REQUIRED XmlGui)
     add_definitions(-DWITH_KF5_XML_GUI)
 endif()
 
@@ -67,6 +65,17 @@ include(ECMSetupVersion)
 include(KDEInstallDirs)
 include(KDECMakeSettings)
 include(KDECompilerSettings NO_POLICY_SCOPE)
+
+# The KF6 KDECompilerSettings enable stricter Qt definitions than KF5 did.
+# This code base predates them (it uses signals/emit keywords and implicit
+# string conversions), so disable the ones it does not comply with.
+remove_definitions(
+    -DQT_NO_KEYWORDS
+    -DQT_NO_CAST_FROM_ASCII
+    -DQT_NO_CAST_TO_ASCII
+    -DQT_NO_CAST_FROM_BYTEARRAY
+    -DQT_NO_URL_CAST_FROM_STRING
+)
 
 ##TODO: figure out whye these qml module checks fail for gitlab-ci
 #ecm_find_qmlmodule(org.kde.kirigami 2.5 REQUIRED)

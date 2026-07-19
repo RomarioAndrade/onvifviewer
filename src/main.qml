@@ -14,8 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import org.kde.kirigami 2.6 as Kirigami
-import QtQuick 2.9
+import org.kde.kirigami as Kirigami
+import QtQuick
 import net.meijn.onvifviewer 1.0
 
 Kirigami.ApplicationWindow {
@@ -34,6 +34,12 @@ Kirigami.ApplicationWindow {
     contextDrawer: Kirigami.ContextDrawer {
         id: contextDrawer
     }
+
+    // Always show a header toolbar with a back button on pushed pages,
+    // so it is always possible to navigate back to the previous screen.
+    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.ToolBar
+    pageStack.globalToolBar.showNavigationButtons: Kirigami.ApplicationHeaderStyle.ShowBackButton
+
     pageStack.initialPage: overviewComponent
     Component {
         id: deviceViewerComponent

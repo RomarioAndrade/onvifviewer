@@ -19,12 +19,11 @@
 
 #include "onvifdeviceconnection.h"
 #include "onvifmediaprofile.h"
+#include "onvifdeviceinformation.h"
+#include "onvifsnapshotdownloader.h"
 #include <QTimer>
 #include <QObject>
 #include <QUrl>
-
-class OnvifDeviceInformation;
-class OnvifSnapshotDownloader;
 
 class OnvifDevice : public QObject
 {
@@ -40,9 +39,9 @@ class OnvifDevice : public QObject
     Q_PROPERTY(bool supportsSnapshotUri READ supportsSnapshotUri NOTIFY supportsSnapshotUriChanged)
     Q_PROPERTY(QUrl snapshotUri READ snapshotUri NOTIFY snapshotUriChanged)
     Q_PROPERTY(QUrl streamUri READ streamUri NOTIFY streamUriChanged)
-    Q_PROPERTY(bool isPanTiltSupported READ isPanTiltSupported)
-    Q_PROPERTY(bool isPtzHomeSupported READ isPtzHomeSupported)
-    Q_PROPERTY(bool isZoomSupported READ isZoomSupported)
+    Q_PROPERTY(bool isPanTiltSupported READ isPanTiltSupported NOTIFY ptzCapabilitiesChanged)
+    Q_PROPERTY(bool isPtzHomeSupported READ isPtzHomeSupported NOTIFY ptzCapabilitiesChanged)
+    Q_PROPERTY(bool isZoomSupported READ isZoomSupported NOTIFY ptzCapabilitiesChanged)
     Q_PROPERTY(OnvifSnapshotDownloader* snapshotDownloader READ snapshotDownloader NOTIFY snapshotDownloaderChanged)
 public:
     explicit OnvifDevice(QObject* parent = nullptr);
@@ -94,6 +93,7 @@ signals:
     void snapshotUriChanged(const QUrl& url);
     void streamUriChanged(const QUrl& url);
     void snapshotDownloaderChanged(OnvifSnapshotDownloader* snapshotDownloader);
+    void ptzCapabilitiesChanged();
 
 public slots:
     void ptzUp();

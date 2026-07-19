@@ -23,6 +23,7 @@
 #include "onvifsnapshotdownloader.h"
 #include <QDebug>
 #include <QUrlQuery>
+#include <algorithm>
 
 OnvifDevice::OnvifDevice(QObject* parent) :
     QObject(parent),
@@ -196,7 +197,7 @@ void OnvifDevice::profileListAvailable(const QList<OnvifMediaProfile>& profileLi
     Q_ASSERT(profileList.size());
     //TODO: Add a proper profile selection
     auto sortedProfileList = profileList;
-    qSort(sortedProfileList.begin(), sortedProfileList.end(), mediaProfileLessThan);
+    std::sort(sortedProfileList.begin(), sortedProfileList.end(), mediaProfileLessThan);
     m_selectedMediaProfile = sortedProfileList.first();
 
     if (media2Service) {
@@ -204,6 +205,8 @@ void OnvifDevice::profileListAvailable(const QList<OnvifMediaProfile>& profileLi
     } else if (mediaService) {
         mediaService->selectProfile(m_selectedMediaProfile);
     }
+
+    emit ptzCapabilitiesChanged();
 }
 
 QString OnvifDevice::preferredVideoStreamProtocol() const
@@ -278,6 +281,7 @@ void OnvifDevice::setPassword(const QString& password)
     if (m_password != password) {
         m_password = password;
         m_connection.setCredentials(m_userName, m_password);
+        m_cachedSnapshotDownloader->setCredentials(m_userName, m_password);
         emit passwordChanged(m_password);
     }
 }
@@ -330,6 +334,7 @@ void OnvifDevice::setUserName(const QString& userName)
     if (m_userName != userName) {
         m_userName = userName;
         m_connection.setCredentials(m_userName, m_password);
+        m_cachedSnapshotDownloader->setCredentials(m_userName, m_password);
         emit userNameChanged(m_userName);
     }
 }

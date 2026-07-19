@@ -14,8 +14,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import QtMultimedia 5.9
-import QtQuick 2.9
+import QtMultimedia
+import QtQuick
 
 Item {
     id: viewer
@@ -24,7 +24,7 @@ Item {
     property bool hasError: video.error !== MediaPlayer.NoError
 
     function isStreamAvailable() {
-        return video.playbackState === MediaPlayer.PlayingState && video.hasVideo && video.source
+        return video.playbackState === MediaPlayer.PlayingState && video.hasVideo && video.source != ""
     }
 
     onVisibleChanged: {
@@ -34,12 +34,20 @@ Item {
             video.stop()
     }
 
-    Video {
+    MediaPlayer {
         id: video
-        muted: true
-        anchors.fill: parent
+        videoOutput: videoOutput
+        audioOutput: AudioOutput {
+            muted: true
+        }
+        onSourceChanged: {
+            if (source != "")
+                play()
+        }
+    }
 
-        autoLoad: true
-        autoPlay: true
+    VideoOutput {
+        id: videoOutput
+        anchors.fill: parent
     }
 }

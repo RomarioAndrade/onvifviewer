@@ -70,7 +70,7 @@ void OnvifSnapshotViewer::updateAspectRatio(const qreal& aspectRatio)
 
 bool OnvifSnapshotViewer::isSnapShotAvailable() const
 {
-    return !m_downloader->snapshot().isNull();
+    return m_downloader && !m_downloader->snapshot().isNull();
 }
 
 int OnvifSnapshotViewer::interval() const

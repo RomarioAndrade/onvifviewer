@@ -14,7 +14,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-import org.kde.kirigami 2.6 as Kirigami
+import org.kde.kirigami as Kirigami
 
 Kirigami.AboutPage {        
     aboutData: onvifviewerAboutData

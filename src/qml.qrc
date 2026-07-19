@@ -4,9 +4,9 @@
     <qresource prefix="/">
         <file>main.qml</file>
         <file>qtquickcontrols2.conf</file>
+        <file>CameraStatusBadge.qml</file>
         <file>OnvifCameraViewer.qml</file>
         <file>OnvifStreamViewer.qml</file>
-        <file>+qtav/OnvifStreamViewer.qml</file>
         <file>DeviceSettingsPage.qml</file>
         <file>OverviewPage.qml</file>
         <file>DeviceViewerPage.qml</file>

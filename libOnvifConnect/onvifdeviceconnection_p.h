@@ -21,6 +21,10 @@
 #include "onvifdeviceconnection.h"
 #include "wsdl_devicemgmt.h"
 
+#include <functional>
+
+class QNetworkAccessManager;
+
 class OnvifDeviceConnectionPrivate
 {
     Q_DISABLE_COPY(OnvifDeviceConnectionPrivate)
@@ -48,6 +52,8 @@ private:
     bool isGetServicesFinished = false;
     bool isGetCapabilitiesFinished = false;
 
+    QNetworkAccessManager* leniencyNam = nullptr;
+
     static const QString c_baseEndpointURI;
 
     void getServicesDone(const OnvifSoapDevicemgmt::TDS__GetServicesResponse& parameters);
@@ -62,6 +68,15 @@ public:
     void updateSoapCredentials(KDSoapClientInterface* clientInterface);
     void updateUrlCredentials(QUrl* url);
     void handleSoapError(const KDSoapMessage& fault, const QString& location);
+
+    /** Work around cameras that return invalid XML (an unescaped '&' in the
+     *  stream/snapshot URL, common on XiongMai-based firmware). KDSoap's strict
+     *  parser rejects such a response, so we re-send @p requestBody ourselves to
+     *  @p endpoint, repair the XML, and extract the "Uri" element. @p onSuccess
+     *  is called with the parsed URL; @p onFailure when no URL could be recovered. */
+    void fetchUriWithLeniency(const QString& endpoint, const QString& requestBody,
+                              const std::function<void(const QUrl&)>& onSuccess,
+                              const std::function<void()>& onFailure);
 };
 
 #endif // ONVIFDEVICECONNECTION_P_H

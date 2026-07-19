@@ -15,11 +15,11 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 import net.meijn.onvifviewer 1.0
-import org.kde.kirigami 2.6 as Kirigami
-import QtQuick 2.9
-import QtQuick.Controls 2.3
-import QtQuick.Controls.Material 2.3
-import QtQuick.Layouts 1.3
+import org.kde.kirigami as Kirigami
+import QtQuick
+import QtQuick.Controls
+import QtQuick.Controls.Material
+import QtQuick.Layouts
 
 Kirigami.ScrollablePage {
     property bool hasConnectionSettingsChanged: false
@@ -59,6 +59,8 @@ Kirigami.ScrollablePage {
             }
             TextField {
                 Kirigami.FormData.label: i18n("Camera name:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 placeholderText: i18n("e.g. Backyard")
                 text: selectedDevice && selectedDevice.deviceName
                 onTextEdited: {
@@ -68,6 +70,8 @@ Kirigami.ScrollablePage {
             }
             TextField {
                 Kirigami.FormData.label: i18n("Hostname:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 placeholderText: i18n("e.g. ipcam.local or 192.168.0.12")
                 text: selectedDevice && selectedDevice.hostName
                 onTextEdited: {
@@ -77,6 +81,8 @@ Kirigami.ScrollablePage {
             }
             TextField {
                 Kirigami.FormData.label: i18n("Username:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 text: selectedDevice && selectedDevice.userName
                 onTextEdited: {
                     hasConnectionSettingsChanged = true
@@ -85,11 +91,36 @@ Kirigami.ScrollablePage {
             }
             TextField {
                 Kirigami.FormData.label: i18n("Password:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 echoMode: TextInput.Password
                 text: selectedDevice && selectedDevice.password
                 onTextEdited: {
                     hasConnectionSettingsChanged = true
                     selectedDevice.password = text
+                }
+            }
+            ComboBox {
+                Kirigami.FormData.label: i18n("Stream transport:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                textRole: "label"
+                valueRole: "protocol"
+                // UDP is prone to packet loss, which corrupts H.264/H.265
+                // reference frames and makes the decoder fail. TCP (RTSP) or
+                // RTSP over HTTP are more robust on lossy networks.
+                model: [
+                    { label: i18n("Automatic (camera default)"), protocol: "" },
+                    { label: i18n("UDP (RTP unicast)"), protocol: "RtspUnicast" },
+                    { label: i18n("TCP (RTSP)"), protocol: "RTSP" },
+                    { label: i18n("RTSP over HTTP"), protocol: "RtspOverHttp" }
+                ]
+                Component.onCompleted: {
+                    currentIndex = indexOfValue(selectedDevice ? selectedDevice.preferredVideoStreamProtocol : "")
+                }
+                onActivated: {
+                    hasConnectionSettingsChanged = true
+                    selectedDevice.preferredVideoStreamProtocol = currentValue
                 }
             }
             Kirigami.Separator {

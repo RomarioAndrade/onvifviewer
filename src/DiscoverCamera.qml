@@ -15,10 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 import net.meijn.onvifviewer 1.0
-import org.kde.kirigami 2.6 as Kirigami
-import QtQuick 2.9
-import QtQuick.Controls 2.3 as Controls
-import QtQuick.Layouts 1.3
+import org.kde.kirigami as Kirigami
+import QtQuick
+import QtQuick.Controls as Controls
+import QtQuick.Layouts
 
 Kirigami.ScrollablePage {
     id: pageDiscoverCamera
@@ -29,12 +29,19 @@ Kirigami.ScrollablePage {
         width: pageDiscoverCamera.width
         height: pageDiscoverCamera.height
 
-        Controls.Label {
-            text: i18n("No camera discovered in the local network.")
+        Kirigami.PlaceholderMessage {
             visible: deviceDiscover.matchList.length === 0
-            wrapMode: Text.WordWrap
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.alignment: Qt.AlignCenter
+            icon.name: "network-wireless"
+            text: i18n("Searching for cameras…")
+            explanation: i18n("Looking for ONVIF cameras on your local network.")
+
+            Controls.BusyIndicator {
+                running: parent.visible
+                Layout.alignment: Qt.AlignHCenter
+            }
         }
 
         Controls.Label {
@@ -49,9 +56,9 @@ Kirigami.ScrollablePage {
             Layout.fillWidth: true
             Layout.fillHeight: true
             model: deviceDiscover.matchList
-            delegate: Kirigami.BasicListItem {
-                icon: "camera-video"
-                label: modelData.name + "/" + modelData.hardware
+            delegate: Controls.ItemDelegate {
+                icon.name: "camera-video"
+                text: modelData.name + "/" + modelData.hardware
                 onClicked: {
                     selectedIndex = deviceManager.appendDevice()
                     var newDevice = deviceManager.at(selectedIndex)

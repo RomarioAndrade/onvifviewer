@@ -29,18 +29,14 @@ set(${PROJECT_NAME}_SRCS
 ecm_setup_version(PROJECT VERSION_HEADER version.h)
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_WSDL} ${${PROJECT_NAME}_BREEZE_ICONS})
 
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Svg Qt5::Quick KF5::CoreAddons KF5::Kirigami2 KF5::I18n KDSoap::kdsoap libOnvifConnect)
-if(KF5XmlGui_FOUND)
-    target_link_libraries(${PROJECT_NAME} KF5::XmlGui)
+target_link_libraries(${PROJECT_NAME} Qt6::Core Qt6::Svg Qt6::Quick Qt6::QuickControls2 KF6::CoreAddons KF6::Kirigami KF6::I18n KDSoap::kdsoap libOnvifConnect)
+if(KF6XmlGui_FOUND)
+    target_link_libraries(${PROJECT_NAME} KF6::XmlGui)
 endif()
 
 if(KDSoapWSDiscoveryClient_FOUND)
     target_link_libraries(${PROJECT_NAME} KDSoap::WSDiscoveryClient)
     add_definitions(-DWITH_KDSOAP_WSDISCOVERY_CLIENT)
-endif()
-if(QTAV_FOUND)
-    target_link_libraries(${PROJECT_NAME} ${QTAV_LIBRARIES})
-    add_definitions(-DWITH_QTAV)
 endif()
 
 install(TARGETS ${PROJECT_NAME} ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})

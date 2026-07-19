@@ -182,7 +182,9 @@ void OnvifMedia2ServicePrivate::getProfilesError(const KDSoapMessage& fault)
 void OnvifMedia2ServicePrivate::getSnapshotUriDone(const TR2__GetSnapshotUriResponse& parameters)
 {
     Q_Q(OnvifMedia2Service);
-    snapshotUri = QUrl(parameters.uri());
+    // Some cameras pad the URI with trailing whitespace, which breaks the
+    // request (the camera's webserver closes the connection). Trim it.
+    snapshotUri = QUrl(parameters.uri().trimmed());
     device->d_ptr->updateUrlHost(&snapshotUri);
     if (snapshotUri.userInfo().isEmpty()) {
         device->d_ptr->updateUrlCredentials(&snapshotUri);
@@ -198,7 +200,7 @@ void OnvifMedia2ServicePrivate::getSnapshotUriError(const KDSoapMessage& fault)
 void OnvifMedia2ServicePrivate::getStreamUriDone(const TR2__GetStreamUriResponse& parameters)
 {
     Q_Q(OnvifMedia2Service);
-    streamUri = QUrl(parameters.uri());
+    streamUri = QUrl(parameters.uri().trimmed());
     device->d_ptr->updateUrlHost(&streamUri);
     if (streamUri.userInfo().isEmpty()) {
         device->d_ptr->updateUrlCredentials(&streamUri);
@@ -208,7 +210,33 @@ void OnvifMedia2ServicePrivate::getStreamUriDone(const TR2__GetStreamUriResponse
 
 void OnvifMedia2ServicePrivate::getStreamUriError(const KDSoapMessage& fault)
 {
-    device->d_ptr->handleSoapError(fault, Q_FUNC_INFO_AS_STRING);
+    Q_Q(OnvifMedia2Service);
+
+    // Some cameras return invalid XML (an unescaped '&' in the RTSP URL) that
+    // KDSoap refuses to parse. Retry the request with a lenient parser; only if
+    // that also fails to recover a URL do we report the original error.
+    QString body = QStringLiteral(
+        "<tr2:GetStreamUri xmlns:tr2=\"http://www.onvif.org/ver20/media/wsdl\">");
+    if (!preferredVideoStreamProtocol.isEmpty()) {
+        body += QStringLiteral("<tr2:Protocol>%1</tr2:Protocol>").arg(preferredVideoStreamProtocol);
+    }
+    body += QStringLiteral("<tr2:ProfileToken>%1</tr2:ProfileToken></tr2:GetStreamUri>")
+                .arg(selectedProfile.token());
+
+    const QString location = Q_FUNC_INFO_AS_STRING;
+    device->d_ptr->fetchUriWithLeniency(
+        soapService.clientInterface()->endPoint(), body,
+        [this, q](const QUrl& url) {
+            streamUri = url;
+            device->d_ptr->updateUrlHost(&streamUri);
+            if (streamUri.userInfo().isEmpty()) {
+                device->d_ptr->updateUrlCredentials(&streamUri);
+            }
+            emit q->streamUriAvailable(streamUri);
+        },
+        [this, fault, location]() {
+            device->d_ptr->handleSoapError(fault, location);
+        });
 }
 
 void OnvifMedia2ServicePrivate::setServiceCapabilities(const TR2__Capabilities2& capabilities)

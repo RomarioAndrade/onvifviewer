@@ -22,9 +22,11 @@
 #include <QApplication>
 #include <QIcon>
 #include <QStringList>
+#include <QTimer>
 #include <QQmlApplicationEngine>
 #include <QQmlFileSelector>
 #include <QQmlContext>
+#include <QQuickStyle>
 #include "onvifdevicediscover.h"
 #include "onvifdevicemanager.h"
 #include "onvifdevicemanagermodel.h"
@@ -36,12 +38,21 @@
 
 Q_DECL_EXPORT int main(int argc, char* argv[])
 {
-#if defined(Q_OS_WIN)
-    QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
-#endif
+    // Qt's FFmpeg backend can crash (segfault) when VAAPI hardware HEVC
+    // decoding fails: it tries to map an invalid GPU surface. Default to
+    // software decoding to avoid those crashes. A user who knows their GPU
+    // is fine can re-enable it by setting the env var to e.g. "vaapi".
+    if (qEnvironmentVariableIsEmpty("QT_FFMPEG_DECODING_HW_DEVICE_TYPES")) {
+        qputenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES", QByteArray());
+    }
 
     QApplication app(argc, argv);
-    
+
+    // Use the KDE desktop style for QtQuick Controls, which Kirigami expects.
+    if (qEnvironmentVariableIsEmpty("QT_QUICK_CONTROLS_STYLE")) {
+        QQuickStyle::setStyle(QStringLiteral("org.kde.desktop"));
+    }
+
     QIcon::setFallbackThemeName("breeze");
 
     KLocalizedString::setApplicationDomain("onvifviewer");

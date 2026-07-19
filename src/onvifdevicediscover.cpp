@@ -77,7 +77,7 @@ void OnvifDeviceDiscover::matchReceived(const WSDiscoveryTargetService& matchedS
     for (auto& scope : matchedService.scopeList()) {
         if (scope.scheme() == "onvif" &&
                 scope.authority().toLower() == "www.onvif.org") {
-            auto splitPath = scope.path().split("/", QString::SkipEmptyParts);
+            auto splitPath = scope.path().split("/", Qt::SkipEmptyParts);
             if (splitPath[0].toLower() == "name") {
                 deviceMatch->m_name = splitPath[1];
             }

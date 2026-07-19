@@ -15,9 +15,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 import net.meijn.onvifviewer 1.0
-import org.kde.kirigami 2.6 as Kirigami
-import QtQuick 2.9
-import QtQuick.Controls 2.3
+import org.kde.kirigami as Kirigami
+import QtQuick
+import QtQuick.Controls
 
 Kirigami.ScrollablePage {
     title: i18n("Add demo camera")

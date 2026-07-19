@@ -22,9 +22,15 @@
 #include "onvifmedia2service.h"
 #include "onvifptzservice.h"
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDebug>
+#include <QNetworkAccessManager>
 #include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QRandomGenerator>
+#include <QRegularExpression>
 #include <QUrl>
+#include <QXmlStreamReader>
 #include "wsdl_devicemgmt.h"
 #include "wsdl_media.h"
 #include "wsdl_media2.h"
@@ -285,8 +291,13 @@ void OnvifDeviceConnectionPrivate::updateUrlHost(QUrl* url)
     if (url->scheme() == "http") {
         QUrl origUrl(OnvifDeviceConnectionPrivate::c_baseEndpointURI.arg(hostname));
         if (url->host() != origUrl.host()) {
+            // Some cameras report a wrong/internal host in the URL (e.g. their
+            // LAN IP behind NAT), so point it back at the host we actually
+            // reached. Keep the URL's own port though: services like the
+            // snapshot webserver often live on a different port (typically 80)
+            // than the ONVIF endpoint (here 8899); forcing the ONVIF port broke
+            // the snapshot download.
             url->setHost(origUrl.host());
-            url->setPort(origUrl.port());
         }
     }
 }
@@ -308,6 +319,87 @@ void OnvifDeviceConnectionPrivate::updateUrlCredentials(QUrl* url)
     Q_ASSERT(url);
     url->setUserName(username);
     url->setPassword(password);
+}
+
+static QString onvifXmlEscape(const QString& in)
+{
+    QString out = in;
+    out.replace(QLatin1Char('&'), QLatin1String("&amp;"));
+    out.replace(QLatin1Char('<'), QLatin1String("&lt;"));
+    out.replace(QLatin1Char('>'), QLatin1String("&gt;"));
+    out.replace(QLatin1Char('"'), QLatin1String("&quot;"));
+    return out;
+}
+
+void OnvifDeviceConnectionPrivate::fetchUriWithLeniency(
+        const QString& endpoint, const QString& requestBody,
+        const std::function<void(const QUrl&)>& onSuccess,
+        const std::function<void()>& onFailure)
+{
+    if (!leniencyNam) {
+        leniencyNam = new QNetworkAccessManager(q_ptr);
+    }
+
+    // Re-create the same WS-Security UsernameToken (PasswordDigest) header that
+    // KDSoap sent, so cameras that require authentication still answer us.
+    QString header;
+    if (isUsernameTokenSupported && !username.isEmpty()) {
+        QByteArray nonce(16, Qt::Uninitialized);
+        QRandomGenerator::global()->fillRange(reinterpret_cast<quint32*>(nonce.data()), 4);
+        const QByteArray created = QDateTime::currentDateTimeUtc().toString(Qt::ISODate).toUtf8();
+        const QByteArray digestInput = nonce + created + password.toUtf8();
+        const QByteArray digest = QCryptographicHash::hash(digestInput,
+                                                           QCryptographicHash::Sha1).toBase64();
+        header = QStringLiteral(
+            "<s:Header><Security s:mustUnderstand=\"1\" "
+            "xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd\">"
+            "<UsernameToken><Username>%1</Username>"
+            "<Password Type=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#PasswordDigest\">%2</Password>"
+            "<Nonce EncodingType=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-soap-message-security-1.0#Base64Binary\">%3</Nonce>"
+            "<Created xmlns=\"http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-utility-1.0.xsd\">%4</Created>"
+            "</UsernameToken></Security></s:Header>")
+            .arg(onvifXmlEscape(username), QString::fromLatin1(digest),
+                 QString::fromLatin1(nonce.toBase64()), QString::fromLatin1(created));
+    }
+
+    const QByteArray envelope = QStringLiteral(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<s:Envelope xmlns:s=\"http://www.w3.org/2003/05/soap-envelope\">%1<s:Body>%2</s:Body></s:Envelope>")
+        .arg(header, requestBody).toUtf8();
+
+    QNetworkRequest request((QUrl(endpoint)));
+    request.setHeader(QNetworkRequest::ContentTypeHeader,
+                      QStringLiteral("application/soap+xml; charset=utf-8"));
+    request.setTransferTimeout(10000);
+    QNetworkReply* reply = leniencyNam->post(request, envelope);
+
+    QObject::connect(reply, &QNetworkReply::finished, reply, [reply, onSuccess, onFailure]() {
+        reply->deleteLater();
+        if (reply->error() != QNetworkReply::NoError) {
+            onFailure();
+            return;
+        }
+        QString xml = QString::fromUtf8(reply->readAll());
+        // Escape stray ampersands that are not part of a valid XML entity.
+        static const QRegularExpression strayAmp(
+            QStringLiteral("&(?!(?:amp|lt|gt|quot|apos|#[0-9]+|#x[0-9a-fA-F]+);)"));
+        xml.replace(strayAmp, QStringLiteral("&amp;"));
+
+        QString uri;
+        QXmlStreamReader reader(xml);
+        while (!reader.atEnd()) {
+            if (reader.readNext() == QXmlStreamReader::StartElement
+                    && reader.name() == QLatin1String("Uri")) {
+                uri = reader.readElementText().trimmed();
+                break;
+            }
+        }
+        if (uri.isEmpty()) {
+            onFailure();
+        } else {
+            onSuccess(QUrl(uri));
+        }
+    });
 }
 
 void OnvifDeviceConnectionPrivate::handleSoapError(const KDSoapMessage& fault, const QString& location)
