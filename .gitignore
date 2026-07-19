@@ -70,3 +70,7 @@ flatpak/repo
 
 # Android 
 android/AndroidManifest.xml
+
+# Claude Code local settings
+.claude/settings.local.json
+.claude/*.tmp.*
