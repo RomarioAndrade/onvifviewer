@@ -51,6 +51,7 @@ set(libOnvifConnect_SRCS
     onvifdeviceinformation.cpp
     onvifmediaprofile.cpp
     sofiaconnection.cpp
+    sofiavideostream.cpp
 )
 
 add_library(libOnvifConnect STATIC ${libOnvifConnect_SRCS} ${libOnvifConnect_WSDL})
