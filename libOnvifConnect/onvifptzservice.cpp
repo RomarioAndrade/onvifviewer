@@ -43,7 +43,9 @@ private:
     OnvifSoapPtz::PTZBindingService soapService;
     QList< OnvifSoapPtz::TT__PTZNode > nodeList;
     bool recievedServiceCapabilities;
+    int pendingConnectReplies = 0;
 
+    void connectReplyReceived();
     void getServiceCapabilitiesDone(const OnvifSoapPtz::TPTZ__GetServiceCapabilitiesResponse& parameters);
     void getServiceCapabilitiesError(const KDSoapMessage& fault);
     void getNodesDone(const OnvifSoapPtz::TPTZ__GetNodesResponse& parameters);
@@ -160,6 +162,7 @@ OnvifPtzService::~OnvifPtzService() = default;
 void OnvifPtzService::connectToService()
 {
     Q_D(OnvifPtzService);
+    d->pendingConnectReplies = d->recievedServiceCapabilities ? 2 : 3;
     if (!d->recievedServiceCapabilities) {
         d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
         d->soapService.asyncGetServiceCapabilities();
@@ -170,6 +173,13 @@ void OnvifPtzService::connectToService()
 
     d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
     d->soapService.asyncGetConfigurations();
+}
+
+void OnvifPtzServicePrivate::connectReplyReceived()
+{
+    if (pendingConnectReplies > 0 && --pendingConnectReplies == 0) {
+        emit q_ptr->connectToServiceFinished();
+    }
 }
 
 void OnvifPtzService::disconnectFromService()
@@ -354,6 +364,7 @@ void OnvifPtzServicePrivate::getServiceCapabilitiesDone(const TPTZ__GetServiceCa
 {
     Q_Q(OnvifPtzService);
     q->setServiceCapabilities(parameters.capabilities());
+    connectReplyReceived();
 }
 
 void OnvifPtzServicePrivate::getServiceCapabilitiesError(const KDSoapMessage& fault)
@@ -364,6 +375,7 @@ void OnvifPtzServicePrivate::getServiceCapabilitiesError(const KDSoapMessage& fa
 void OnvifPtzServicePrivate::getNodesDone(const OnvifSoapPtz::TPTZ__GetNodesResponse& parameters)
 {
     nodeList = parameters.pTZNode();
+    connectReplyReceived();
 }
 
 void OnvifPtzServicePrivate::getNodesError(const KDSoapMessage& fault)
@@ -374,6 +386,7 @@ void OnvifPtzServicePrivate::getNodesError(const KDSoapMessage& fault)
 void OnvifPtzServicePrivate::getConfigurationsDone(const TPTZ__GetConfigurationsResponse& /*parameters*/)
 {
     // TODO: What can we do with the the PTZ configuration
+    connectReplyReceived();
 }
 
 void OnvifPtzServicePrivate::getConfigurationsError(const KDSoapMessage& fault)

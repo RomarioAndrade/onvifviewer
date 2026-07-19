@@ -40,6 +40,10 @@ public:
 
 signals:
     void deviceInformationAvailable(const OnvifDeviceInformation& deviceInformation);
+    // Emitted once all requests issued by connectToService() have completed,
+    // so the connection can bring services up one at a time (fragile cameras
+    // reset connections when hit with many concurrent requests).
+    void connectToServiceFinished();
 };
 
 #endif // ONVIFDEVICESERVICE_H

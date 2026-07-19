@@ -54,6 +54,13 @@ private:
 
     QNetworkAccessManager* leniencyNam = nullptr;
 
+    // Cheap cameras (e.g. XiongMai/hsoap) reset connections when hit with many
+    // concurrent ONVIF requests, so the services are brought up one at a time:
+    // each queued step starts a service and waits for its connectToServiceFinished
+    // before the next runs.
+    QList<std::function<void()>> connectSteps;
+    int connectStepIndex = 0;
+
     static const QString c_baseEndpointURI;
 
     void getServicesDone(const OnvifSoapDevicemgmt::TDS__GetServicesResponse& parameters);
@@ -62,6 +69,7 @@ private:
     void getCapabilitiesError(const KDSoapMessage& fault);
 
     void checkServicesAvailable();
+    void startNextServiceConnect();
 
 public:
     void updateUrlHost(QUrl* url);

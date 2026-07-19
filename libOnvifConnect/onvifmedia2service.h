@@ -56,6 +56,8 @@ signals:
     void supportsSnapshotUriAvailable(bool supportsSnapshotUri);
     void snapshotUriAvailable(const QUrl& snapshotUri);
     void streamUriAvailable(const QUrl& streamUri);
+    // Emitted once the requests issued by connectToService() have completed.
+    void connectToServiceFinished();
 };
 
 #endif // ONVIFMEDIA2SERVICE_H

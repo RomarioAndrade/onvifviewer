@@ -64,6 +64,10 @@ public:
     void saveHomePosition(const OnvifMediaProfile& profile);
 
     void stopMovement(const OnvifMediaProfile& profile);
+
+signals:
+    // Emitted once the requests issued by connectToService() have completed.
+    void connectToServiceFinished();
 };
 
 

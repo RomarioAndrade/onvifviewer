@@ -31,6 +31,7 @@
 #include <QRegularExpression>
 #include <QUrl>
 #include <QXmlStreamReader>
+#include <type_traits>
 #include "wsdl_devicemgmt.h"
 #include "wsdl_media.h"
 #include "wsdl_media2.h"
@@ -104,10 +105,11 @@ void OnvifDeviceConnection::connectToDevice()
 
     TDS__GetServices request;
     request.setIncludeCapability(true);
-    // Access level pre-auth => no credentials needes
+    // Access level pre-auth => no credentials needed.
+    // GetCapabilities is issued only once GetServices returns (see
+    // getServicesDone/getServicesError): firing both at once is two concurrent
+    // requests, and fragile cameras reset the excess.
     d->soapService.asyncGetServices(request);
-    // Access level pre-auth => no credentials needes
-    d->soapService.asyncGetCapabilities(TDS__GetCapabilities());
 
     d->errorString.clear();
     emit errorStringChanged(d->errorString);
@@ -118,6 +120,11 @@ void OnvifDeviceConnection::disconnectFromDevice()
     Q_D(OnvifDeviceConnection);
     d->isGetCapabilitiesFinished = false;
     d->isGetServicesFinished = false;
+
+    // Drop any pending serialized bring-up steps; they capture service pointers
+    // that are about to be deleted.
+    d->connectSteps.clear();
+    d->connectStepIndex = 0;
 
     if (d->deviceService) {
         d->deviceService->deleteLater();
@@ -184,7 +191,9 @@ void OnvifDeviceConnectionPrivate::getServicesDone(const TDS__GetServicesRespons
     }
 
     isGetServicesFinished = true;
-    checkServicesAvailable();
+    // Now that GetServices is done, issue GetCapabilities (serialized, not
+    // concurrent) and let getCapabilitiesDone/Error trigger checkServicesAvailable.
+    soapService.asyncGetCapabilities(TDS__GetCapabilities());
 }
 
 void OnvifDeviceConnectionPrivate::getServicesError(const KDSoapMessage& fault)
@@ -193,7 +202,8 @@ void OnvifDeviceConnectionPrivate::getServicesError(const KDSoapMessage& fault)
     // Therefore we mark the service finished and ignore any error
     isGetServicesFinished = true;
     qDebug() << "The GetServices call failed; this is expected for older ONVIF devices:" << fault.faultAsString();
-    checkServicesAvailable();
+    // Issue GetCapabilities now (serialized after GetServices).
+    soapService.asyncGetCapabilities(TDS__GetCapabilities());
 }
 
 void OnvifDeviceConnectionPrivate::getCapabilitiesDone(const TDS__GetCapabilitiesResponse& parameters)
@@ -246,19 +256,47 @@ void OnvifDeviceConnectionPrivate::checkServicesAvailable()
 {
     Q_Q(OnvifDeviceConnection);
     if (isGetServicesFinished && isGetCapabilitiesFinished) {
-        if (deviceService) {
-            deviceService->connectToService();
-        }
-        if (mediaService) {
-            mediaService->connectToService();
-        }
-        if (media2Service) {
-            media2Service->connectToService();
-        }
-        if (ptzService) {
-            ptzService->connectToService();
-        }
+        // Bring the services up one at a time instead of all at once: cheap
+        // cameras (hsoap/XiongMai) reset connections when flooded with
+        // concurrent ONVIF requests. Each step starts a service and the next
+        // step only runs once that service emits connectToServiceFinished.
+        // The media services go last because selecting a profile issues extra
+        // requests (stream/snapshot URI); keeping them at the tail avoids
+        // overlapping those with another service's start-up burst.
+        connectSteps.clear();
+        connectStepIndex = 0;
+
+        auto addStep = [this, q](auto* service) {
+            if (!service) {
+                return;
+            }
+            connectSteps.append([this, q, service]() {
+                using ServiceType = std::remove_pointer_t<decltype(service)>;
+                QObject::connect(service, &ServiceType::connectToServiceFinished,
+                                 q, [this]() { startNextServiceConnect(); },
+                                 Qt::SingleShotConnection);
+                service->connectToService();
+            });
+        };
+
+        addStep(deviceService);
+        addStep(ptzService);
+        addStep(mediaService);
+        addStep(media2Service);
+
+        // Emit before the first request fires so the app has wired up its
+        // per-service signal handlers by the time replies arrive.
         emit q->servicesAvailable();
+        startNextServiceConnect();
+    }
+}
+
+void OnvifDeviceConnectionPrivate::startNextServiceConnect()
+{
+    if (connectStepIndex < connectSteps.size()) {
+        const auto step = connectSteps.at(connectStepIndex);
+        ++connectStepIndex;
+        step();
     }
 }
 

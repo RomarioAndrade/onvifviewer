@@ -46,7 +46,9 @@ private:
     QUrl snapshotUri;
     QUrl streamUri;
     QString preferredVideoStreamProtocol;
+    int pendingConnectReplies = 0;
 
+    void connectReplyReceived();
     void getProfilesDone(const OnvifSoapMedia2::TR2__GetProfilesResponse& parameters);
     void getProfilesError(const KDSoapMessage& fault);
     void getSnapshotUriDone(const OnvifSoapMedia2::TR2__GetSnapshotUriResponse& parameters);
@@ -97,10 +99,18 @@ OnvifMedia2Service::~OnvifMedia2Service() = default;
 void OnvifMedia2Service::connectToService()
 {
     Q_D(OnvifMedia2Service);
+    d->pendingConnectReplies = 1;
     d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
     TR2__GetProfiles request;
     request.setType(QStringList() << "All");
     d->soapService.asyncGetProfiles(request);
+}
+
+void OnvifMedia2ServicePrivate::connectReplyReceived()
+{
+    if (pendingConnectReplies > 0 && --pendingConnectReplies == 0) {
+        emit q_ptr->connectToServiceFinished();
+    }
 }
 
 void OnvifMedia2Service::disconnectFromService()
@@ -172,10 +182,12 @@ void OnvifMedia2ServicePrivate::getProfilesDone(const TR2__GetProfilesResponse& 
         profileList << OnvifMediaProfile(profile);
     }
     emit q->profileListAvailable(profileList);
+    connectReplyReceived();
 }
 
 void OnvifMedia2ServicePrivate::getProfilesError(const KDSoapMessage& fault)
 {
+    // Fatal: tears the connection down, which stops the serialized bring-up.
     device->d_ptr->handleSoapError(fault, Q_FUNC_INFO_AS_STRING);
 }
 

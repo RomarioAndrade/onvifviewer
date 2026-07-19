@@ -48,7 +48,9 @@ private:
     QUrl snapshotUri;
     QUrl streamUri;
     QString preferredVideoStreamProtocol;
+    int pendingConnectReplies = 0;
 
+    void connectReplyReceived();
     void getServiceCapabilitiesDone(const OnvifSoapMedia::TRT__GetServiceCapabilitiesResponse& parameters);
     void getServiceCapabilitiesError(const KDSoapMessage& fault);
     void getProfilesDone(const OnvifSoapMedia::TRT__GetProfilesResponse& parameters);
@@ -105,12 +107,20 @@ OnvifMediaService::~OnvifMediaService() = default;
 void OnvifMediaService::connectToService()
 {
     Q_D(OnvifMediaService);
+    d->pendingConnectReplies = d->recievedServiceCapabilities ? 1 : 2;
     if (!d->recievedServiceCapabilities) {
         d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
         d->soapService.asyncGetServiceCapabilities();
     }
     d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
     d->soapService.asyncGetProfiles();
+}
+
+void OnvifMediaServicePrivate::connectReplyReceived()
+{
+    if (pendingConnectReplies > 0 && --pendingConnectReplies == 0) {
+        emit q_ptr->connectToServiceFinished();
+    }
 }
 
 void OnvifMediaService::disconnectFromService()
@@ -214,6 +224,7 @@ void OnvifMediaServicePrivate::getServiceCapabilitiesDone(const TRT__GetServiceC
 {
     Q_Q(OnvifMediaService);
     q->setServiceCapabilities(parameters.capabilities());
+    connectReplyReceived();
 }
 
 void OnvifMediaServicePrivate::getServiceCapabilitiesError(const KDSoapMessage& fault)
@@ -225,6 +236,7 @@ void OnvifMediaServicePrivate::getServiceCapabilitiesError(const KDSoapMessage& 
 
     // Lets assume that snapshots are supported
     supportsSnapshotUri = true;
+    connectReplyReceived();
 }
 
 void OnvifMediaServicePrivate::getProfilesDone(const OnvifSoapMedia::TRT__GetProfilesResponse& parameters)
@@ -237,10 +249,12 @@ void OnvifMediaServicePrivate::getProfilesDone(const OnvifSoapMedia::TRT__GetPro
     }
 
     emit q->profileListAvailable(profileList);
+    connectReplyReceived();
 }
 
 void OnvifMediaServicePrivate::getProfilesError(const KDSoapMessage& fault)
 {
+    // Fatal: tears the connection down, which stops the serialized bring-up.
     device->d_ptr->handleSoapError(fault, Q_FUNC_INFO_AS_STRING);
 }
 

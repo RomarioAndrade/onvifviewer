@@ -41,10 +41,19 @@ public:
     OnvifDeviceConnection* device;
     DeviceBindingService soapService;
     OnvifDeviceInformation deviceInformation;
+    int pendingConnectReplies = 0;
 
+    void connectReplyReceived();
     void getDeviceInformationDone(const OnvifSoapDevicemgmt::TDS__GetDeviceInformationResponse& parameters);
     void getDeviceInformationError(const KDSoapMessage& fault);
 };
+
+void OnvifDeviceServicePrivate::connectReplyReceived()
+{
+    if (pendingConnectReplies > 0 && --pendingConnectReplies == 0) {
+        emit q_ptr->connectToServiceFinished();
+    }
+}
 
 OnvifDeviceService::OnvifDeviceService(const QString& soapEndpoint, OnvifDeviceConnection* parent) :
     QObject(parent),
@@ -68,6 +77,7 @@ OnvifDeviceService::~OnvifDeviceService() = default;
 void OnvifDeviceService::connectToService()
 {
     Q_D(OnvifDeviceService);
+    d->pendingConnectReplies = 1;
     d->device->d_ptr->updateSoapCredentials(d->soapService.clientInterface());
     d->soapService.asyncGetDeviceInformation();
 }
@@ -89,9 +99,12 @@ void OnvifDeviceServicePrivate::getDeviceInformationDone(const TDS__GetDeviceInf
     Q_Q(OnvifDeviceService);
     deviceInformation = OnvifDeviceInformation(parameters);
     emit q->deviceInformationAvailable(deviceInformation);
+    connectReplyReceived();
 }
 
 void OnvifDeviceServicePrivate::getDeviceInformationError(const KDSoapMessage& fault)
 {
+    // Fatal: handleSoapError tears the whole connection down, which stops the
+    // serialized service bring-up; no need to advance the chain.
     device->d_ptr->handleSoapError(fault, Q_FUNC_INFO_AS_STRING);
 }
