@@ -16,6 +16,10 @@
  */
 #include "onvifdevicediscover.h"
 
+#include "sofiadiscovery.h"
+
+#include <QHostAddress>
+
 #ifdef WITH_KDSOAP_WSDISCOVERY_CLIENT
 #include <KDSoapWSDiscoveryClient/WSDiscoveryClient>
 #include <KDSoapWSDiscoveryClient/WSDiscoveryTargetService>
@@ -38,15 +42,16 @@ OnvifDeviceDiscover::OnvifDeviceDiscover(QObject* parent) :
     type.setNameSpace("http://www.onvif.org/ver10/network/wsdl");
     m_probeJob->addType(type);
 #endif
+
+    m_sofiaDiscovery = new SofiaDiscovery(this);
+    connect(m_sofiaDiscovery, &SofiaDiscovery::deviceFound,
+            this, &OnvifDeviceDiscover::sofiaDeviceFound);
 }
 
 bool OnvifDeviceDiscover::isAvailable()
 {
-#ifdef WITH_KDSOAP_WSDISCOVERY_CLIENT
+    // Sofia/XMEye discovery only needs a UDP socket, so it always works.
     return true;
-#else
-    return false;
-#endif
 }
 
 QObjectList OnvifDeviceDiscover::matchList() const
@@ -64,6 +69,36 @@ void OnvifDeviceDiscover::start()
     m_client->start();
     m_probeJob->start();
 #endif
+    m_sofiaDiscovery->start();
+}
+
+void OnvifDeviceDiscover::sofiaDeviceFound(const QString& mac, const QString& hostName,
+                                           const QHostAddress& address, quint16 tcpPort)
+{
+    const QString endpoint = QStringLiteral("sofia:") + mac;
+    OnvifDeviceDiscoverMatch* deviceMatch = m_matchMap.value(endpoint);
+    const QString host = tcpPort == 34567
+            ? address.toString()
+            : QStringLiteral("%1:%2").arg(address.toString()).arg(tcpPort);
+    const QString name = hostName.isEmpty() ? mac : hostName;
+    if (deviceMatch != nullptr) {
+        // Devices answer every periodic probe; only notify on changes.
+        deviceMatch->m_lastSeen = QDateTime::currentDateTime();
+        if (deviceMatch->m_name == name && deviceMatch->m_host == host) {
+            return;
+        }
+    } else {
+        deviceMatch = new OnvifDeviceDiscoverMatch();
+    }
+    deviceMatch->m_endpoint = endpoint;
+    deviceMatch->m_deviceType = QStringLiteral("sofia");
+    deviceMatch->m_name = name;
+    deviceMatch->m_hardware = QStringLiteral("Sofia/XMEye");
+    deviceMatch->m_host = host;
+    deviceMatch->m_lastSeen = QDateTime::currentDateTime();
+
+    m_matchMap.insert(endpoint, deviceMatch);
+    emit matchListChanged(matchList());
 }
 
 void OnvifDeviceDiscover::matchReceived(const WSDiscoveryTargetService& matchedService)
@@ -113,7 +148,12 @@ QUrl OnvifDeviceDiscoverMatch::getXAddr() const
 
 QString OnvifDeviceDiscoverMatch::getHost() const
 {
-    return m_xAddr.authority();
+    return m_host.isEmpty() ? m_xAddr.authority() : m_host;
+}
+
+QString OnvifDeviceDiscoverMatch::getDeviceType() const
+{
+    return m_deviceType;
 }
 
 QString OnvifDeviceDiscoverMatch::getName() const

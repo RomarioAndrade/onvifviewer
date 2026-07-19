@@ -36,7 +36,7 @@ Kirigami.ScrollablePage {
             Layout.alignment: Qt.AlignCenter
             icon.name: "network-wireless"
             text: i18n("Searching for cameras…")
-            explanation: i18n("Looking for ONVIF cameras on your local network.")
+            explanation: i18n("Looking for ONVIF and Sofia/XMEye cameras on your local network.")
 
             Controls.BusyIndicator {
                 running: parent.visible
@@ -58,18 +58,23 @@ Kirigami.ScrollablePage {
             model: deviceDiscover.matchList
             delegate: Controls.ItemDelegate {
                 icon.name: "camera-video"
-                text: modelData.name + "/" + modelData.hardware
+                text: modelData.name + " (" + modelData.hardware + ")"
                 onClicked: {
                     selectedIndex = deviceManager.appendDevice()
                     var newDevice = deviceManager.at(selectedIndex)
+                    newDevice.deviceType = modelData.deviceType;
                     newDevice.deviceName = modelData.name;
-                    console.log(modelData.xAddr)
                     newDevice.hostName = modelData.host;
-                    newDevice.connectToDevice();
+                    if (modelData.deviceType !== "sofia") {
+                        // Sofia devices need credentials first; the settings
+                        // page pushed below collects them before connecting.
+                        newDevice.connectToDevice();
+                    }
                     deviceManager.saveDevices()
 
                     pageStack.pop();
                     pageStack.push(settingsComponent);
+                    pageStack.currentItem.isNewDevice = true
                 }
                 width: parent.width
             }
