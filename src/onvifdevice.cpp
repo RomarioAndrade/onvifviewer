@@ -47,13 +47,22 @@ OnvifDevice::OnvifDevice(QObject* parent) :
 
 void OnvifDevice::connectToDevice()
 {
-    m_connection.connectToDevice();
+    // Only talk ONVIF when we have a host. A camera configured with just a
+    // manual stream URL (e.g. a bridged RTSP source) needs no ONVIF at all.
+    if (!m_hostName.isEmpty()) {
+        m_connection.connectToDevice();
+    }
+    if (!m_manualStreamUri.isEmpty()) {
+        emit streamUriChanged(streamUri());
+    }
 }
 
 void OnvifDevice::reconnectToDevice()
 {
-    m_connection.disconnectFromDevice();
-    m_connection.connectToDevice();
+    if (!m_hostName.isEmpty()) {
+        m_connection.disconnectFromDevice();
+        m_connection.connectToDevice();
+    }
 
     emit snapshotUriChanged(snapshotUri());
     emit streamUriChanged(streamUri());
@@ -71,6 +80,10 @@ OnvifSnapshotDownloader* OnvifDevice::snapshotDownloader() const
 
 bool OnvifDevice::supportsSnapshotUri() const
 {
+    // A manual-URL-only camera (no ONVIF host) has no snapshot endpoint.
+    if (!m_manualStreamUri.isEmpty() && m_hostName.isEmpty()) {
+        return false;
+    }
     const OnvifMedia2Service* media2Service = m_connection.getMedia2Service();
     if (media2Service) {
         return media2Service->supportsSnapshotUri();
@@ -101,6 +114,10 @@ QUrl OnvifDevice::snapshotUri() const
 
 QUrl OnvifDevice::streamUri() const
 {
+    // A manually configured stream URL overrides ONVIF discovery.
+    if (!m_manualStreamUri.isEmpty()) {
+        return QUrl(m_manualStreamUri);
+    }
     const OnvifMedia2Service* media2Service = m_connection.getMedia2Service();
     if (media2Service) {
         return media2Service->getStreamUri();
@@ -288,6 +305,34 @@ void OnvifDevice::setPreferredVideoStreamProtocol(const QString& preferredVideoS
     if (m_preferredVideoStreamProtocol != preferredVideoStreamProtocol) {
         m_preferredVideoStreamProtocol = preferredVideoStreamProtocol;
         emit preferredVideoStreamProtocolChanged(m_preferredVideoStreamProtocol);
+    }
+}
+
+QString OnvifDevice::manualStreamUri() const
+{
+    return m_manualStreamUri;
+}
+
+void OnvifDevice::setManualStreamUri(const QString& manualStreamUri)
+{
+    if (m_manualStreamUri != manualStreamUri) {
+        m_manualStreamUri = manualStreamUri;
+        emit manualStreamUriChanged(m_manualStreamUri);
+        emit streamUriChanged(streamUri());
+        emit supportsSnapshotUriChanged(supportsSnapshotUri());
+    }
+}
+
+bool OnvifDevice::showInMosaic() const
+{
+    return m_showInMosaic;
+}
+
+void OnvifDevice::setShowInMosaic(bool showInMosaic)
+{
+    if (m_showInMosaic != showInMosaic) {
+        m_showInMosaic = showInMosaic;
+        emit showInMosaicChanged(m_showInMosaic);
     }
 }
 

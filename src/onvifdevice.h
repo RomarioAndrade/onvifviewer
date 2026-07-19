@@ -35,6 +35,8 @@ class OnvifDevice : public QObject
     Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged)
     Q_PROPERTY(bool preferContinuousMove READ preferContinuousMove WRITE setPreferContinuousMove NOTIFY preferContinuousMoveChanged)
     Q_PROPERTY(QString preferredVideoStreamProtocol READ preferredVideoStreamProtocol WRITE setPreferredVideoStreamProtocol NOTIFY preferredVideoStreamProtocolChanged)
+    Q_PROPERTY(QString manualStreamUri READ manualStreamUri WRITE setManualStreamUri NOTIFY manualStreamUriChanged)
+    Q_PROPERTY(bool showInMosaic READ showInMosaic WRITE setShowInMosaic NOTIFY showInMosaicChanged)
     Q_PROPERTY(QString errorString READ errorString NOTIFY errorStringChanged)
     Q_PROPERTY(OnvifDeviceInformation* deviceInformation READ deviceInformation NOTIFY deviceInformationChanged)
     Q_PROPERTY(bool supportsSnapshotUri READ supportsSnapshotUri NOTIFY supportsSnapshotUriChanged)
@@ -81,6 +83,12 @@ public:
     QString preferredVideoStreamProtocol() const;
     void setPreferredVideoStreamProtocol(const QString& preferredVideoStreamProtocol);
 
+    QString manualStreamUri() const;
+    void setManualStreamUri(const QString& manualStreamUri);
+
+    bool showInMosaic() const;
+    void setShowInMosaic(bool showInMosaic);
+
     QVariantList profiles() const;
     QString selectedProfileToken() const;
     void setSelectedProfileToken(const QString& token);
@@ -94,6 +102,8 @@ signals:
     void passwordChanged(const QString& password);
     void preferContinuousMoveChanged(bool preferContinuousMove);
     void preferredVideoStreamProtocolChanged(const QString& preferredVideoStreamProtocol);
+    void manualStreamUriChanged(const QString& manualStreamUri);
+    void showInMosaicChanged(bool showInMosaic);
     void errorStringChanged(const QString& errorString);
     void deviceInformationChanged(OnvifDeviceInformation* deviceInformation);
     void supportsSnapshotUriChanged(bool supportsSnapshotUri);
@@ -129,6 +139,8 @@ private:
     QString m_password;
     bool m_preferContinuousMove;
     QString m_preferredVideoStreamProtocol;
+    QString m_manualStreamUri;
+    bool m_showInMosaic = false;
     QList<OnvifMediaProfile> m_profileList;
     QString m_preferredProfileToken;
     OnvifMediaProfile m_selectedMediaProfile;

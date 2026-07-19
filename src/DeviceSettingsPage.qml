@@ -80,6 +80,17 @@ Kirigami.ScrollablePage {
                 }
             }
             TextField {
+                Kirigami.FormData.label: i18n("Manual stream URL:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                placeholderText: i18n("e.g. rtsp://192.168.0.12:554/stream")
+                text: selectedDevice && selectedDevice.manualStreamUri
+                onTextEdited: {
+                    hasConnectionSettingsChanged = true
+                    selectedDevice.manualStreamUri = text
+                }
+            }
+            TextField {
                 Kirigami.FormData.label: i18n("Username:")
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
@@ -160,6 +171,14 @@ Kirigami.ScrollablePage {
                 onCheckedChanged: {
                     hasOtherSettingsChanged = true
                     selectedDevice.preferContinuousMove = checked
+                }
+            }
+            Switch {
+                Kirigami.FormData.label: i18n("Show in mosaic")
+                checked: selectedDevice && selectedDevice.showInMosaic
+                onCheckedChanged: {
+                    hasOtherSettingsChanged = true
+                    selectedDevice.showInMosaic = checked
                 }
             }
         }

@@ -48,6 +48,8 @@ void OnvifDeviceManager::loadDevices()
         device->setPassword(settings.value("password").toString());
         device->setPreferContinuousMove(settings.value("preferContinuousMove").toBool());
         device->setPreferredVideoStreamProtocol(settings.value("preferredVideoStreamProtocol").toString());
+        device->setManualStreamUri(settings.value("manualStreamUri").toString());
+        device->setShowInMosaic(settings.value("showInMosaic").toBool());
         device->setSelectedProfileToken(settings.value("profileToken").toString());
 
         device->connectToDevice();
@@ -68,6 +70,8 @@ void OnvifDeviceManager::saveDevices()
         settings.setValue("password", device->password());
         settings.setValue("preferContinuousMove", device->preferContinuousMove());
         settings.setValue("preferredVideoStreamProtocol", device->preferredVideoStreamProtocol());
+        settings.setValue("manualStreamUri", device->manualStreamUri());
+        settings.setValue("showInMosaic", device->showInMosaic());
         settings.setValue("profileToken", device->selectedProfileToken());
     }
     settings.endArray();

@@ -54,6 +54,10 @@ Kirigami.ApplicationWindow {
         OverviewPage{}
     }
     Component {
+        id: mosaicComponent
+        MosaicPage{}
+    }
+    Component {
         id: addDemoCameraComponent
         AddDemoCamera{}
     }

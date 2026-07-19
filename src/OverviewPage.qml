@@ -27,6 +27,14 @@ Kirigami.ScrollablePage {
 
     actions: [
         Kirigami.Action {
+            text: i18nc("opens the live camera mosaic", "Mosaic")
+            icon.name: "view-grid"
+            enabled: deviceManager.size > 0
+            onTriggered: {
+                pageStack.push(mosaicComponent);
+            }
+        },
+        Kirigami.Action {
             text: i18nc("adds a new camera", "Add")
             icon.name: "list-add"
             onTriggered: {
@@ -52,44 +60,68 @@ Kirigami.ScrollablePage {
 
     Kirigami.OverlaySheet {
         id: bottomDrawer
+        title: i18n("Add a camera")
+
+        // Each way to add a camera is a single tappable row: icon, title and a
+        // short explanation, instead of a button paired with loose text.
+        component AddOption: Controls.ItemDelegate {
+            Layout.fillWidth: true
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 22
+            property alias iconName: optionIcon.source
+            property string title
+            property string subtitle
+            contentItem: RowLayout {
+                spacing: Kirigami.Units.largeSpacing
+                Kirigami.Icon {
+                    id: optionIcon
+                    Layout.alignment: Qt.AlignTop
+                    implicitWidth: Kirigami.Units.iconSizes.medium
+                    implicitHeight: Kirigami.Units.iconSizes.medium
+                }
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: Kirigami.Units.smallSpacing
+                    Kirigami.Heading {
+                        level: 4
+                        text: title
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                    }
+                    Controls.Label {
+                        text: subtitle
+                        opacity: 0.7
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
+                }
+            }
+        }
+
         contentItem: ColumnLayout {
-            Controls.Button {
-                text: i18n("Automaticly discover camera")
-                Layout.fillWidth: true
+            spacing: Kirigami.Units.smallSpacing
+            AddOption {
+                visible: deviceDiscover.isAvailable
+                iconName: "search"
+                title: i18n("Automatically discover camera")
+                subtitle: i18n("Automatically find a camera in your network.")
                 onClicked: {
                     pageStack.push(discoverCameraComponent);
                     bottomDrawer.close();
                 }
-                visible: deviceDiscover.isAvailable
             }
-            Controls.Label {
-                text: i18n("Automatically find a camera in your network.");
-                wrapMode: Text.WordWrap
-                horizontalAlignment: "AlignHCenter"
-                Layout.leftMargin: Kirigami.Units.gridUnit * 2
-                Layout.rightMargin: Kirigami.Units.gridUnit * 2
-                Layout.fillWidth: true
-                visible: deviceDiscover.isAvailable
-            }
-            Controls.Button {
-                text: i18n("Add demonstration camera")
-                Layout.fillWidth: true
+            AddOption {
+                iconName: "camera-web"
+                title: i18n("Add demonstration camera")
+                subtitle: i18n("A demonstration camera shows you some of the capabilities, without owning a camera.")
                 onClicked: {
                     pageStack.push(addDemoCameraComponent);
                     bottomDrawer.close();
                 }
             }
-            Controls.Label {
-                text: i18n("These demonstration cameras show you some on the capabilities, without owning a camera.");
-                wrapMode: Text.WordWrap
-                horizontalAlignment: "AlignHCenter"
-                Layout.leftMargin: Kirigami.Units.gridUnit * 2
-                Layout.rightMargin: Kirigami.Units.gridUnit * 2
-                Layout.fillWidth: true
-            }
-            Controls.Button {
-                text: i18n("Manually add camera")
-                Layout.fillWidth: true
+            AddOption {
+                iconName: "list-add"
+                title: i18n("Manually add camera")
+                subtitle: i18n("Provide the connection parameters (hostname or stream URL) yourself.")
                 onClicked: {
                     selectedIndex = deviceManager.appendDevice()
                     pageStack.push(settingsComponent);
@@ -97,16 +129,7 @@ Kirigami.ScrollablePage {
                     bottomDrawer.close();
                 }
             }
-            Controls.Label {
-                text: i18n("Manually adding a camera means that you need to provide the connection parameters yourself.");
-                wrapMode: Text.WordWrap
-                horizontalAlignment: "AlignHCenter"
-                Layout.leftMargin: Kirigami.Units.gridUnit * 2
-                Layout.rightMargin: Kirigami.Units.gridUnit * 2
-                Layout.fillWidth: true
-            }
         }
-
     }
 
     Kirigami.PlaceholderMessage {
@@ -200,6 +223,16 @@ Kirigami.ScrollablePage {
                                 selectedIndex = index
                                 pageStack.pop(pageOverview);
                                 pageStack.push(deviceViewerComponent);
+                            }
+                        },
+                        Kirigami.Action {
+                            checkable: true
+                            checked: model.device.showInMosaic
+                            icon.name: "view-grid"
+                            text: i18nc("toggle showing this camera in the mosaic", "Mosaic")
+                            onTriggered: {
+                                model.device.showInMosaic = checked
+                                deviceManager.saveDevices()
                             }
                         },
                         Kirigami.Action {

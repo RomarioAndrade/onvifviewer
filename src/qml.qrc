@@ -9,6 +9,7 @@
         <file>OnvifStreamViewer.qml</file>
         <file>DeviceSettingsPage.qml</file>
         <file>OverviewPage.qml</file>
+        <file>MosaicPage.qml</file>
         <file>DeviceViewerPage.qml</file>
         <file>AddDemoCamera.qml</file>
         <file>DiscoverCamera.qml</file>
