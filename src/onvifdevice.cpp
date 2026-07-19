@@ -585,15 +585,17 @@ void OnvifDevice::ptzRight()
     ptzMove(0.1f, 0);
 }
 
-void OnvifDevice::sofiaPtz(const QString& command)
+void OnvifDevice::sofiaPtz(const QString& command, bool hold)
 {
     if (!m_sofia) {
         return;
     }
     m_sofiaLastPtz = command;
+    m_ptzActive = true;
     m_sofia->ptzStart(command, 5);
-    // The UI issues one-shot clicks; auto-stop shortly after, like ONVIF.
-    m_ptzStopTimer.start(500);
+    // On a click, auto-stop shortly after; on press-and-hold the UI sends
+    // the Stop on release and the timer is only a lost-release safety net.
+    m_ptzStopTimer.start(hold ? 15000 : 500);
 }
 
 void OnvifDevice::ptzMove(float xFraction, float yFraction)
@@ -620,8 +622,51 @@ void OnvifDevice::ptzMove(float xFraction, float yFraction)
         ptzService->relativeMove(m_selectedMediaProfile, xFraction, yFraction);
     } else if (ptzService->isContinuousMoveSupported(m_selectedMediaProfile)) {
         ptzService->continuousMove(m_selectedMediaProfile, xFraction, yFraction);
+        m_ptzActive = true;
         m_ptzStopTimer.start(500);
     }
+}
+
+void OnvifDevice::ptzStartMove(float xFraction, float yFraction)
+{
+    if (isSofia()) {
+        QString dir;
+        if (yFraction > 0) {
+            dir = QStringLiteral("DirectionUp");
+        } else if (yFraction < 0) {
+            dir = QStringLiteral("DirectionDown");
+        } else if (xFraction > 0) {
+            dir = QStringLiteral("DirectionRight");
+        } else if (xFraction < 0) {
+            dir = QStringLiteral("DirectionLeft");
+        }
+        if (!dir.isEmpty()) {
+            sofiaPtz(dir, true);
+        }
+        return;
+    }
+    OnvifPtzService* ptzService = m_connection.getPtzService();
+    Q_ASSERT(ptzService);
+    if (ptzService->isContinuousMoveSupported(m_selectedMediaProfile)) {
+        ptzService->continuousMove(m_selectedMediaProfile, xFraction, yFraction);
+        m_ptzActive = true;
+        m_ptzStopTimer.start(15000);
+    } else if (ptzService->isRelativeMoveSupported(m_selectedMediaProfile)) {
+        // No continuous support: a hold degrades to a single step.
+        ptzService->relativeMove(m_selectedMediaProfile, xFraction, yFraction);
+    }
+}
+
+void OnvifDevice::ptzStartZoom(float direction)
+{
+    if (isSofia()) {
+        sofiaPtz(direction > 0 ? QStringLiteral("ZoomTile") : QStringLiteral("ZoomWide"), true);
+        return;
+    }
+    // ONVIF has no continuous zoom wired up; a hold degrades to a single step.
+    OnvifPtzService* ptzService = m_connection.getPtzService();
+    Q_ASSERT(ptzService);
+    ptzService->relativeZoom(m_selectedMediaProfile, direction > 0 ? 0.1f : -0.1f);
 }
 
 void OnvifDevice::ptzHome()
@@ -646,6 +691,11 @@ void OnvifDevice::ptzSaveHomePosition()
 
 void OnvifDevice::ptzStop()
 {
+    m_ptzStopTimer.stop();
+    if (!m_ptzActive) {
+        return;
+    }
+    m_ptzActive = false;
     if (isSofia()) {
         if (m_sofia && !m_sofiaLastPtz.isEmpty()) {
             m_sofia->ptzStop(m_sofiaLastPtz);

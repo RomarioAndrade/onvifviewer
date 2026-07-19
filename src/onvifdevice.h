@@ -130,6 +130,8 @@ public slots:
     void ptzLeft();
     void ptzRight();
     void ptzMove(float xFraction, float yFraction);
+    void ptzStartMove(float xFraction, float yFraction);
+    void ptzStartZoom(float direction);
     void ptzHome();
     void ptzSaveHomePosition();
     void ptzStop();
@@ -144,13 +146,14 @@ private slots:
 private:
     bool isSofia() const { return m_deviceType == QLatin1String("sofia"); }
     void ensureSofia();
-    void sofiaPtz(const QString& command);
+    void sofiaPtz(const QString& command, bool hold = false);
 
     OnvifDeviceConnection m_connection;
     QString m_deviceType = QStringLiteral("onvif");
     SofiaConnection* m_sofia = nullptr;       // native PTZ/control (lazy)
     SofiaMediaServer* m_sofiaMedia = nullptr; // native video → local HTTP (lazy)
     QString m_sofiaLastPtz;                    // command to send Stop for
+    bool m_ptzActive = false;                  // a continuous move needs a Stop
     QString m_deviceName;
     QString m_hostName;
     QString m_userName;

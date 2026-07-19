@@ -67,9 +67,9 @@ Kirigami.Page {
                     icon.name: "go-up"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzUp()
-                    }
+                    onPressed: selectedDevice.ptzStartMove(0, 0.1)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
                 QQC2.ToolButton {
                     Layout.row: 1
@@ -77,9 +77,9 @@ Kirigami.Page {
                     icon.name: "go-previous"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzLeft()
-                    }
+                    onPressed: selectedDevice.ptzStartMove(-0.1, 0)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
                 QQC2.ToolButton {
                     Layout.row: 1
@@ -102,9 +102,9 @@ Kirigami.Page {
                     icon.name: "go-next"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzRight()
-                    }
+                    onPressed: selectedDevice.ptzStartMove(0.1, 0)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
                 QQC2.ToolButton {
                     Layout.row: 2
@@ -112,9 +112,9 @@ Kirigami.Page {
                     icon.name: "go-down"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzDown()
-                    }
+                    onPressed: selectedDevice.ptzStartMove(0, -0.1)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
             }
             ColumnLayout {
@@ -123,17 +123,17 @@ Kirigami.Page {
                     icon.name: "zoom-in"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzZoomIn()
-                    }
+                    onPressed: selectedDevice.ptzStartZoom(1)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
                 QQC2.ToolButton {
                     icon.name: "zoom-out"
                     icon.width: Kirigami.Units.iconSizes.medium
                     icon.height: Kirigami.Units.iconSizes.medium
-                    onClicked: {
-                        selectedDevice.ptzZoomOut()
-                    }
+                    onPressed: selectedDevice.ptzStartZoom(-1)
+                    onReleased: selectedDevice.ptzStop()
+                    onCanceled: selectedDevice.ptzStop()
                 }
             }
             Rectangle {
