@@ -53,6 +53,8 @@ public:
     QString ptzNodeToken() const;
     QString videoEncoding() const;
     long resolutionPixels() const;
+    int width() const;
+    int height() const;
 
 private:
     QSharedDataPointer<OnvifMediaProfilePrivate> d;

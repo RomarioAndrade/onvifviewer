@@ -23,6 +23,7 @@
 #include "onvifsnapshotdownloader.h"
 #include <QDebug>
 #include <QUrlQuery>
+#include <QVariantMap>
 #include <algorithm>
 
 OnvifDevice::OnvifDevice(QObject* parent) :
@@ -190,23 +191,91 @@ bool mediaProfileLessThan(const OnvifMediaProfile& p1, const OnvifMediaProfile& 
 
 void OnvifDevice::profileListAvailable(const QList<OnvifMediaProfile>& profileList)
 {
-    auto* mediaService = qobject_cast<OnvifMediaService*> (sender());
-    auto* media2Service = qobject_cast<OnvifMedia2Service*> (sender());
-    Q_ASSERT(mediaService || media2Service);
-
     Q_ASSERT(profileList.size());
-    //TODO: Add a proper profile selection
+
     auto sortedProfileList = profileList;
     std::sort(sortedProfileList.begin(), sortedProfileList.end(), mediaProfileLessThan);
-    m_selectedMediaProfile = sortedProfileList.first();
+    m_profileList = sortedProfileList;
+    emit profilesChanged();
 
-    if (media2Service) {
-        media2Service->selectProfile(m_selectedMediaProfile);
-    } else if (mediaService) {
-        mediaService->selectProfile(m_selectedMediaProfile);
+    // Honour the user's saved choice if it is still offered, otherwise pick the
+    // best profile (by encoding preference, then resolution).
+    OnvifMediaProfile chosen = sortedProfileList.first();
+    if (!m_preferredProfileToken.isEmpty()) {
+        for (const auto& profile : sortedProfileList) {
+            if (profile.token() == m_preferredProfileToken) {
+                chosen = profile;
+                break;
+            }
+        }
+    }
+    applyProfile(chosen);
+}
+
+void OnvifDevice::applyProfile(const OnvifMediaProfile& profile)
+{
+    const bool tokenChanged = m_selectedMediaProfile.token() != profile.token();
+    m_selectedMediaProfile = profile;
+
+    // Re-fetching the stream/snapshot URIs for the new profile makes the viewer
+    // reconnect to it, so the switch happens live.
+    if (auto* media2Service = m_connection.getMedia2Service()) {
+        media2Service->selectProfile(profile);
+    } else if (auto* mediaService = m_connection.getMediaService()) {
+        mediaService->selectProfile(profile);
     }
 
     emit ptzCapabilitiesChanged();
+    if (tokenChanged) {
+        emit selectedProfileTokenChanged(profile.token());
+    }
+}
+
+QVariantList OnvifDevice::profiles() const
+{
+    QVariantList list;
+    for (const auto& profile : m_profileList) {
+        QVariantMap entry;
+        entry[QStringLiteral("token")] = profile.token();
+        QString label = profile.name().isEmpty() ? profile.token() : profile.name();
+        QString detail = profile.videoEncoding();
+        if (profile.width() > 0 && profile.height() > 0) {
+            const QString res = QStringLiteral("%1×%2").arg(profile.width()).arg(profile.height());
+            detail = detail.isEmpty() ? res : detail + QLatin1Char(' ') + res;
+        }
+        if (!detail.isEmpty()) {
+            label += QStringLiteral(" — ") + detail;
+        }
+        entry[QStringLiteral("label")] = label;
+        list.append(entry);
+    }
+    return list;
+}
+
+QString OnvifDevice::selectedProfileToken() const
+{
+    if (!m_selectedMediaProfile.token().isEmpty()) {
+        return m_selectedMediaProfile.token();
+    }
+    return m_preferredProfileToken;
+}
+
+void OnvifDevice::setSelectedProfileToken(const QString& token)
+{
+    if (token == selectedProfileToken()) {
+        return;
+    }
+    m_preferredProfileToken = token;
+
+    // Apply immediately (live switch) if this profile is already available;
+    // otherwise remember it until the profile list arrives after connecting.
+    for (const auto& profile : m_profileList) {
+        if (profile.token() == token) {
+            applyProfile(profile);
+            return;
+        }
+    }
+    emit selectedProfileTokenChanged(selectedProfileToken());
 }
 
 QString OnvifDevice::preferredVideoStreamProtocol() const

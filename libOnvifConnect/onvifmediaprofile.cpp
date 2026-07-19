@@ -30,7 +30,9 @@ public:
         name(profile.name()),
         token(profile.token().value()),
         ptzNodeToken(profile.pTZConfiguration().nodeToken()),
-        resolutionPixels(profile.videoEncoderConfiguration().resolution().height() * profile.videoEncoderConfiguration().resolution().width())
+        resolutionPixels(profile.videoEncoderConfiguration().resolution().height() * profile.videoEncoderConfiguration().resolution().width()),
+        width(profile.videoEncoderConfiguration().resolution().width()),
+        height(profile.videoEncoderConfiguration().resolution().height())
     {
         Q_ASSERT(token.size());
         switch (profile.videoEncoderConfiguration().encoding()) {
@@ -52,7 +54,9 @@ public:
         token(profile.token().value()),
         ptzNodeToken(profile.configurations().pTZ().nodeToken()),
         videoEncoding(profile.configurations().videoEncoder().encoding()),
-        resolutionPixels(profile.configurations().videoEncoder().resolution().height() * profile.configurations().videoEncoder().resolution().width())
+        resolutionPixels(profile.configurations().videoEncoder().resolution().height() * profile.configurations().videoEncoder().resolution().width()),
+        width(profile.configurations().videoEncoder().resolution().width()),
+        height(profile.configurations().videoEncoder().resolution().height())
     {
         Q_ASSERT(token.size());
     }
@@ -63,6 +67,8 @@ public:
     QString ptzNodeToken;
     QString videoEncoding;
     long resolutionPixels = 0;
+    int width = 0;
+    int height = 0;
 };
 
 OnvifMediaProfile::OnvifMediaProfile() :
@@ -136,6 +142,16 @@ QString OnvifMediaProfile::videoEncoding() const
 long OnvifMediaProfile::resolutionPixels() const
 {
     return d->resolutionPixels;
+}
+
+int OnvifMediaProfile::width() const
+{
+    return d->width;
+}
+
+int OnvifMediaProfile::height() const
+{
+    return d->height;
 }
 
 QDebug operator<< (QDebug debug, const OnvifMediaProfile& p)

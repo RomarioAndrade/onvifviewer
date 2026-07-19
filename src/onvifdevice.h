@@ -24,6 +24,7 @@
 #include <QTimer>
 #include <QObject>
 #include <QUrl>
+#include <QVariantList>
 
 class OnvifDevice : public QObject
 {
@@ -43,6 +44,8 @@ class OnvifDevice : public QObject
     Q_PROPERTY(bool isPtzHomeSupported READ isPtzHomeSupported NOTIFY ptzCapabilitiesChanged)
     Q_PROPERTY(bool isZoomSupported READ isZoomSupported NOTIFY ptzCapabilitiesChanged)
     Q_PROPERTY(OnvifSnapshotDownloader* snapshotDownloader READ snapshotDownloader NOTIFY snapshotDownloaderChanged)
+    Q_PROPERTY(QVariantList profiles READ profiles NOTIFY profilesChanged)
+    Q_PROPERTY(QString selectedProfileToken READ selectedProfileToken WRITE setSelectedProfileToken NOTIFY selectedProfileTokenChanged)
 public:
     explicit OnvifDevice(QObject* parent = nullptr);
 
@@ -78,6 +81,10 @@ public:
     QString preferredVideoStreamProtocol() const;
     void setPreferredVideoStreamProtocol(const QString& preferredVideoStreamProtocol);
 
+    QVariantList profiles() const;
+    QString selectedProfileToken() const;
+    void setSelectedProfileToken(const QString& token);
+
     void initByUrl(const QUrl& url);
 
 signals:
@@ -94,6 +101,8 @@ signals:
     void streamUriChanged(const QUrl& url);
     void snapshotDownloaderChanged(OnvifSnapshotDownloader* snapshotDownloader);
     void ptzCapabilitiesChanged();
+    void profilesChanged();
+    void selectedProfileTokenChanged(const QString& token);
 
 public slots:
     void ptzUp();
@@ -120,7 +129,11 @@ private:
     QString m_password;
     bool m_preferContinuousMove;
     QString m_preferredVideoStreamProtocol;
+    QList<OnvifMediaProfile> m_profileList;
+    QString m_preferredProfileToken;
     OnvifMediaProfile m_selectedMediaProfile;
+
+    void applyProfile(const OnvifMediaProfile& profile);
     OnvifDeviceInformation* m_cachedDeviceInformation;
     QTimer m_ptzStopTimer;
     OnvifSnapshotDownloader* m_cachedSnapshotDownloader;

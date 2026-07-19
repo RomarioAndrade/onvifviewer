@@ -123,6 +123,33 @@ Kirigami.ScrollablePage {
                     selectedDevice.preferredVideoStreamProtocol = currentValue
                 }
             }
+            ComboBox {
+                id: profileCombo
+                Kirigami.FormData.label: i18n("Video profile:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                textRole: "label"
+                valueRole: "token"
+                // The profile list only arrives after the camera connects.
+                model: selectedDevice ? selectedDevice.profiles : []
+                enabled: count > 0
+                displayText: count > 0 ? currentText : i18n("Loading…")
+                function syncSelection() {
+                    currentIndex = indexOfValue(selectedDevice ? selectedDevice.selectedProfileToken : "")
+                }
+                onCountChanged: syncSelection()
+                Component.onCompleted: syncSelection()
+                onActivated: {
+                    // Switches the stream live; persist the choice without a
+                    // full reconnect (selectProfile already re-fetches the URIs).
+                    hasOtherSettingsChanged = true
+                    selectedDevice.selectedProfileToken = currentValue
+                }
+                Connections {
+                    target: selectedDevice
+                    function onSelectedProfileTokenChanged() { profileCombo.syncSelection() }
+                }
+            }
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: i18n("Camera properties")
