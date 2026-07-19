@@ -28,6 +28,8 @@
 static constexpr quint16 MSG_LOGIN     = 1000;
 static constexpr quint16 MSG_KEEPALIVE = 1006;
 static constexpr quint16 MSG_PTZ       = 1400;
+static constexpr quint16 MSG_SNAP      = 1560; // OPSNAP request
+static constexpr quint16 MSG_SNAP_DATA = 1561; // OPSNAP reply (raw JPEG)
 // Ret values that the firmware considers a success.
 static bool isOkCode(int ret) { return ret == 100 || ret == 515; }
 
@@ -163,7 +165,15 @@ void SofiaConnection::onReadyRead()
 
 void SofiaConnection::handlePacket(quint16 msgId, quint32 session, const QByteArray& payload)
 {
-    Q_UNUSED(msgId)
+    if (msgId == MSG_SNAP_DATA) {
+        // OPSNAP reply: the whole payload is a JPEG (with a trailing null).
+        QByteArray jpeg = payload;
+        while (!jpeg.isEmpty() && jpeg.endsWith('\x00')) {
+            jpeg.chop(1);
+        }
+        emit snapshotReady(jpeg);
+        return;
+    }
     // Control replies are JSON, null/newline terminated.
     const qsizetype nul = payload.indexOf('\x00');
     const QByteArray jsonBytes = nul >= 0 ? payload.left(nul) : payload;
@@ -252,6 +262,20 @@ void SofiaConnection::sendPtz(const QString& command, int step, int preset, int 
     obj.insert(QStringLiteral("SessionID"), QString::fromLatin1(sessionHex()));
     obj.insert(QStringLiteral("OPPTZControl"), ctrl);
     sendCommand(MSG_PTZ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
+}
+
+void SofiaConnection::requestSnapshot(int channel)
+{
+    if (!m_loggedIn) {
+        return;
+    }
+    QJsonObject snap;
+    snap.insert(QStringLiteral("Channel"), channel);
+    QJsonObject obj;
+    obj.insert(QStringLiteral("Name"), QStringLiteral("OPSNAP"));
+    obj.insert(QStringLiteral("SessionID"), QString::fromLatin1(sessionHex()));
+    obj.insert(QStringLiteral("OPSNAP"), snap);
+    sendCommand(MSG_SNAP, QJsonDocument(obj).toJson(QJsonDocument::Compact));
 }
 
 void SofiaConnection::onSocketError(QAbstractSocket::SocketError error)

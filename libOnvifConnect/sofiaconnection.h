@@ -52,12 +52,16 @@ public:
     void ptzStart(const QString& command, int step = 5, int channel = 0);
     void ptzStop(const QString& command, int channel = 0);
 
+    // Request a still image (OPSNAP); the JPEG arrives via snapshotReady().
+    void requestSnapshot(int channel = 0);
+
     // The Sofia password hash (MD5 folded into the XM 62-char alphabet).
     static QString sofiaHash(const QString& password);
 
 signals:
     void loggedIn();
     void loginFailed(int ret);
+    void snapshotReady(const QByteArray& jpeg);
     void disconnected();
     void errorStringChanged(const QString& errorString);
 

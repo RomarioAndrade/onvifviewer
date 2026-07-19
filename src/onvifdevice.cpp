@@ -89,6 +89,9 @@ void OnvifDevice::ensureSofia()
     }
     if (!m_sofiaMedia) {
         m_sofiaMedia = new SofiaMediaServer(this);
+        // The media server serves OPSNAP still images (via the control
+        // connection) at /snapshot.jpg for the overview snapshot downloader.
+        m_sofiaMedia->setControlConnection(m_sofia);
     }
     QString host;
     quint16 port = 34567;
@@ -107,9 +110,13 @@ void OnvifDevice::connectToDevice()
         }
         ensureSofia();
         m_sofia->connectToDevice();
-        // Serve the native video as a local MPEG-TS URL for the normal player.
+        // Serve the native video as a local MPEG-TS URL for the normal player,
+        // and OPSNAP still images at /snapshot.jpg for the overview cards.
         m_sofiaMedia->start();
+        m_cachedSnapshotDownloader->setSnapshotUri(snapshotUri());
         emit streamUriChanged(streamUri());
+        emit snapshotUriChanged(snapshotUri());
+        emit supportsSnapshotUriChanged(supportsSnapshotUri());
         emit ptzCapabilitiesChanged();
         return;
     }
@@ -153,9 +160,9 @@ OnvifSnapshotDownloader* OnvifDevice::snapshotDownloader() const
 
 bool OnvifDevice::supportsSnapshotUri() const
 {
-    // Sofia devices have no snapshot endpoint yet; they always stream live.
+    // Sofia devices expose OPSNAP still images through the local bridge.
     if (isSofia()) {
-        return false;
+        return m_sofiaMedia != nullptr;
     }
     // A manual-URL-only camera (no ONVIF host) has no snapshot endpoint.
     if (!m_manualStreamUri.isEmpty() && m_hostName.isEmpty()) {
@@ -176,6 +183,9 @@ bool OnvifDevice::supportsSnapshotUri() const
 
 QUrl OnvifDevice::snapshotUri() const
 {
+    if (isSofia()) {
+        return m_sofiaMedia ? QUrl(m_sofiaMedia->snapshotUrl()) : QUrl();
+    }
     const OnvifMedia2Service* media2Service = m_connection.getMedia2Service();
     if (media2Service) {
         return media2Service->getSnapshotUri();

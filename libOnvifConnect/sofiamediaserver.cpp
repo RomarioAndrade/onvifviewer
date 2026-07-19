@@ -16,6 +16,7 @@
  */
 #include "sofiamediaserver.h"
 #include "sofiavideostream.h"
+#include "sofiaconnection.h"
 #include "mpegtsmuxer.h"
 
 #include <QTcpServer>
@@ -53,6 +54,19 @@ void SofiaMediaServer::setStream(const QString& streamType)
     m_stream->setStream(streamType);
 }
 
+void SofiaMediaServer::setControlConnection(SofiaConnection* control)
+{
+    if (m_control) {
+        disconnect(m_control, &SofiaConnection::snapshotReady,
+                   this, &SofiaMediaServer::onSnapshotReady);
+    }
+    m_control = control;
+    if (m_control) {
+        connect(m_control, &SofiaConnection::snapshotReady,
+                this, &SofiaMediaServer::onSnapshotReady);
+    }
+}
+
 QString SofiaMediaServer::start()
 {
     if (!m_server->isListening()) {
@@ -72,8 +86,12 @@ void SofiaMediaServer::stop()
     for (QTcpSocket* c : std::as_const(m_clients)) {
         c->disconnectFromHost();
     }
+    for (QTcpSocket* c : std::as_const(m_snapshotClients)) {
+        c->disconnectFromHost();
+    }
     m_clients.clear();
     m_ready.clear();
+    m_snapshotClients.clear();
 }
 
 QString SofiaMediaServer::url() const
@@ -82,6 +100,12 @@ QString SofiaMediaServer::url() const
         return QString();
     }
     return QStringLiteral("http://127.0.0.1:%1/").arg(m_server->serverPort());
+}
+
+QString SofiaMediaServer::snapshotUrl() const
+{
+    const QString base = url();
+    return base.isEmpty() ? QString() : base + QStringLiteral("snapshot.jpg");
 }
 
 void SofiaMediaServer::startUpstreamIfNeeded()
@@ -97,16 +121,64 @@ void SofiaMediaServer::startUpstreamIfNeeded()
 void SofiaMediaServer::onNewConnection()
 {
     while (QTcpSocket* client = m_server->nextPendingConnection()) {
+        // Wait for the request line before routing: "/snapshot.jpg" is a still
+        // image, anything else is the live MPEG-TS video.
+        connect(client, &QTcpSocket::readyRead, this, &SofiaMediaServer::onClientReadyRead);
         connect(client, &QTcpSocket::disconnected, this, &SofiaMediaServer::onClientDisconnected);
-        // The player issues a GET; we don't need to parse it. Reply immediately
-        // with a never-ending MPEG-TS body.
-        client->write("HTTP/1.0 200 OK\r\n"
-                      "Content-Type: video/mp2t\r\n"
-                      "Cache-Control: no-cache\r\n"
-                      "Connection: close\r\n\r\n");
-        m_clients.insert(client);
-        startUpstreamIfNeeded();
     }
+}
+
+void SofiaMediaServer::onClientReadyRead()
+{
+    QTcpSocket* client = qobject_cast<QTcpSocket*>(sender());
+    if (!client) {
+        return;
+    }
+    const QByteArray head = client->peek(2048);
+    const int eol = head.indexOf("\r\n");
+    if (eol < 0) {
+        return; // request line not complete yet
+    }
+    const QByteArray requestLine = head.left(eol);
+    disconnect(client, &QTcpSocket::readyRead, this, &SofiaMediaServer::onClientReadyRead);
+    client->readAll();
+
+    if (requestLine.contains("/snapshot")) {
+        if (m_control && m_control->isLoggedIn()) {
+            m_snapshotClients.insert(client);
+            m_control->requestSnapshot();
+        } else {
+            client->write("HTTP/1.0 503 Service Unavailable\r\n"
+                          "Connection: close\r\n\r\n");
+            client->disconnectFromHost();
+        }
+        return;
+    }
+
+    // Live video: reply with a never-ending MPEG-TS body.
+    client->write("HTTP/1.0 200 OK\r\n"
+                  "Content-Type: video/mp2t\r\n"
+                  "Cache-Control: no-cache\r\n"
+                  "Connection: close\r\n\r\n");
+    m_clients.insert(client);
+    startUpstreamIfNeeded();
+}
+
+void SofiaMediaServer::onSnapshotReady(const QByteArray& jpeg)
+{
+    if (m_snapshotClients.isEmpty() || jpeg.isEmpty()) {
+        return;
+    }
+    const QByteArray resp = "HTTP/1.0 200 OK\r\n"
+                            "Content-Type: image/jpeg\r\n"
+                            "Content-Length: " + QByteArray::number(jpeg.size()) + "\r\n"
+                            "Cache-Control: no-cache\r\n"
+                            "Connection: close\r\n\r\n" + jpeg;
+    for (QTcpSocket* c : std::as_const(m_snapshotClients)) {
+        c->write(resp);
+        c->disconnectFromHost();
+    }
+    m_snapshotClients.clear();
 }
 
 void SofiaMediaServer::onClientDisconnected()
@@ -117,6 +189,7 @@ void SofiaMediaServer::onClientDisconnected()
     }
     m_clients.remove(client);
     m_ready.remove(client);
+    m_snapshotClients.remove(client);
     client->deleteLater();
     if (m_clients.isEmpty()) {
         m_stream->stop();

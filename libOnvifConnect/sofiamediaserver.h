@@ -30,6 +30,7 @@
 class QTcpServer;
 class QTcpSocket;
 class SofiaVideoStream;
+class SofiaConnection;
 class MpegTsMuxer;
 
 class SofiaMediaServer : public QObject
@@ -42,18 +43,23 @@ public:
     void setHostname(const QString& hostname, quint16 port = 34567);
     void setCredentials(const QString& username, const QString& password);
     void setStream(const QString& streamType);
+    // Existing control connection used to fetch OPSNAP still images. Not owned.
+    void setControlConnection(SofiaConnection* control);
 
     // Begin listening on loopback. Returns the local URL to feed the player, or
     // an empty string if it could not bind.
     QString start();
     void stop();
-    QString url() const;
+    QString url() const;          // http://127.0.0.1:PORT/  (MPEG-TS video)
+    QString snapshotUrl() const;  // http://127.0.0.1:PORT/snapshot.jpg
 
 private slots:
     void onNewConnection();
+    void onClientReadyRead();
     void onClientDisconnected();
     void onVideoFrame(const QByteArray& nal, bool keyFrame);
     void onCodecChanged(const QString& codec);
+    void onSnapshotReady(const QByteArray& jpeg);
 
 private:
     void startUpstreamIfNeeded();
@@ -61,8 +67,10 @@ private:
     QTcpServer* m_server = nullptr;
     SofiaVideoStream* m_stream = nullptr;
     MpegTsMuxer* m_muxer = nullptr;
+    SofiaConnection* m_control = nullptr; // not owned; for OPSNAP snapshots
     QSet<QTcpSocket*> m_clients;   // all connected players
     QSet<QTcpSocket*> m_ready;     // players that have received a key frame
+    QSet<QTcpSocket*> m_snapshotClients; // pending /snapshot.jpg requests
     quint64 m_pts = 0;
     int m_fps = 25;
     bool m_upstreamRunning = false;
