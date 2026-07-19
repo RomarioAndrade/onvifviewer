@@ -13,6 +13,12 @@ The goal of this project is to replace the proprietary app that was needed to co
 This project was started as part of the [ONVIF Open Source Spotlight Challange](https://onvif-spotlight.bemyapp.com/#/projects/5ae0bbf7f98fde00047f0605) and the application finished in [fourth place](https://www.onvif.org/blog/2018/07/onvif-challenge-announces-top-10/) (out of 37 submissions). 
 Before this project started, there was no open-source application for viewing ONVIF cameras for Plasma Mobile and Linux desktop. Neither is there a simple to use open-source C++ library to communicate with ONVIF cameras. The communication with the camera is implemented from scratch (using KDSoap) and modular designed, so that it can be separated into a reusable library at a later stage.
 
+> **Note:** This repository is a fork maintained by Romário Andrade. It ports the
+> application to Qt6/KF6 and fixes issues with cameras that don't fully comply
+> with the ONVIF specification. All credit for the original application goes to
+> Casper Meijn — the upstream project lives at
+> <https://gitlab.com/caspermeijn/onvifviewer>.
+
 
 ## Current state
 
@@ -74,7 +80,7 @@ local network; if it is not available the rest of the application still builds.
 
 Then build ONVIFViewer using CMake:
 
-    git clone https://gitlab.com/caspermeijn/onvifviewer.git
+    git clone https://github.com/RomarioAndrade/onvifviewer.git
     mkdir build-onvifviewer
     cd build-onvifviewer
     cmake -DCMAKE_BUILD_TYPE=Release ../onvifviewer
