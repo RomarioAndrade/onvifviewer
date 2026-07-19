@@ -211,6 +211,19 @@ void SofiaConnection::sendKeepAlive()
 
 void SofiaConnection::ptzStart(const QString& command, int step, int channel)
 {
+    // Preset 65535 starts a continuous move; ptzStop sends the same command
+    // with Preset -1 to halt it. Using -1 to *start* is what silently no-ops
+    // (the camera replies Ret 100 but never moves).
+    sendPtz(command, step, 65535, channel);
+}
+
+void SofiaConnection::ptzStop(const QString& command, int channel)
+{
+    sendPtz(command, 5, -1, channel);
+}
+
+void SofiaConnection::sendPtz(const QString& command, int step, int preset, int channel)
+{
     if (!m_loggedIn) {
         return;
     }
@@ -228,8 +241,9 @@ void SofiaConnection::ptzStart(const QString& command, int step, int channel)
     param.insert(QStringLiteral("MenuOpts"), QStringLiteral("Enter"));
     param.insert(QStringLiteral("POINT"), point);
     param.insert(QStringLiteral("Pattern"), QStringLiteral("SetBegin"));
-    param.insert(QStringLiteral("Preset"), -1);
+    param.insert(QStringLiteral("Preset"), preset);
     param.insert(QStringLiteral("Step"), step);
+    param.insert(QStringLiteral("Tour"), 0);
     QJsonObject ctrl;
     ctrl.insert(QStringLiteral("Command"), command);
     ctrl.insert(QStringLiteral("Parameter"), param);
@@ -238,12 +252,6 @@ void SofiaConnection::ptzStart(const QString& command, int step, int channel)
     obj.insert(QStringLiteral("SessionID"), QString::fromLatin1(sessionHex()));
     obj.insert(QStringLiteral("OPPTZControl"), ctrl);
     sendCommand(MSG_PTZ, QJsonDocument(obj).toJson(QJsonDocument::Compact));
-}
-
-void SofiaConnection::ptzStop(const QString& command, int channel)
-{
-    // A Step of 0 tells the camera to stop the continuous move.
-    ptzStart(command, 0, channel);
 }
 
 void SofiaConnection::onSocketError(QAbstractSocket::SocketError error)

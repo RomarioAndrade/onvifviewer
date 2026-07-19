@@ -129,6 +129,18 @@ Kirigami.ScrollablePage {
                     bottomDrawer.close();
                 }
             }
+            AddOption {
+                iconName: "camera-video"
+                title: i18n("Add Sofia / XMEye camera")
+                subtitle: i18n("Native protocol for XiongMai cameras without working ONVIF (port 34567).")
+                onClicked: {
+                    selectedIndex = deviceManager.appendDevice()
+                    deviceManager.at(selectedIndex).deviceType = "sofia"
+                    pageStack.push(settingsComponent);
+                    pageStack.currentItem.isNewDevice = true
+                    bottomDrawer.close();
+                }
+            }
         }
     }
 

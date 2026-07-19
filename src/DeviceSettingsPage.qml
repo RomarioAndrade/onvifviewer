@@ -44,6 +44,7 @@ Kirigami.ScrollablePage {
     }
 
     property OnvifDevice selectedDevice: deviceManager.at(selectedIndex)
+    readonly property bool isSofia: selectedDevice && selectedDevice.deviceType === "sofia"
 
     ColumnLayout {
         spacing: Kirigami.Units.gridUnit
@@ -68,11 +69,30 @@ Kirigami.ScrollablePage {
                     selectedDevice.deviceName = text
                 }
             }
-            TextField {
-                Kirigami.FormData.label: i18n("Hostname:")
+            ComboBox {
+                Kirigami.FormData.label: i18n("Protocol:")
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
-                placeholderText: i18n("e.g. ipcam.local or 192.168.0.12")
+                textRole: "label"
+                valueRole: "type"
+                model: [
+                    { label: i18n("ONVIF"), type: "onvif" },
+                    { label: i18n("Sofia / XMEye (native)"), type: "sofia" }
+                ]
+                Component.onCompleted: {
+                    currentIndex = indexOfValue(selectedDevice ? selectedDevice.deviceType : "onvif")
+                }
+                onActivated: {
+                    hasConnectionSettingsChanged = true
+                    selectedDevice.deviceType = currentValue
+                }
+            }
+            TextField {
+                Kirigami.FormData.label: isSofia ? i18n("IP address:") : i18n("Hostname:")
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                placeholderText: isSofia ? i18n("e.g. 192.168.0.12 (port 34567)")
+                                         : i18n("e.g. ipcam.local or 192.168.0.12")
                 text: selectedDevice && selectedDevice.hostName
                 onTextEdited: {
                     hasConnectionSettingsChanged = true
@@ -81,6 +101,7 @@ Kirigami.ScrollablePage {
             }
             TextField {
                 Kirigami.FormData.label: i18n("Manual stream URL:")
+                visible: !isSofia
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 placeholderText: i18n("e.g. rtsp://192.168.0.12:554/stream")
@@ -113,6 +134,7 @@ Kirigami.ScrollablePage {
             }
             ComboBox {
                 Kirigami.FormData.label: i18n("Stream transport:")
+                visible: !isSofia
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 textRole: "label"
@@ -137,6 +159,7 @@ Kirigami.ScrollablePage {
             ComboBox {
                 id: profileCombo
                 Kirigami.FormData.label: i18n("Video profile:")
+                visible: !isSofia
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 textRole: "label"

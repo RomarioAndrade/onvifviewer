@@ -26,9 +26,15 @@
 #include <QUrl>
 #include <QVariantList>
 
+class SofiaConnection;
+class SofiaMediaServer;
+
 class OnvifDevice : public QObject
 {
     Q_OBJECT
+    // "onvif" (default) or "sofia" — selects the camera backend. Sofia is the
+    // native XiongMai/DVRIP protocol for cameras with no working ONVIF.
+    Q_PROPERTY(QString deviceType READ deviceType WRITE setDeviceType NOTIFY deviceTypeChanged)
     Q_PROPERTY(QString deviceName READ deviceName WRITE setDeviceName NOTIFY deviceNameChanged)
     Q_PROPERTY(QString hostName READ hostName WRITE setHostName NOTIFY hostNameChanged)
     Q_PROPERTY(QString userName READ userName WRITE setUserName NOTIFY userNameChanged)
@@ -53,6 +59,9 @@ public:
 
     Q_INVOKABLE void connectToDevice();
     Q_INVOKABLE void reconnectToDevice();
+
+    QString deviceType() const;
+    void setDeviceType(const QString& deviceType);
 
     OnvifDeviceInformation* deviceInformation() const;
     OnvifSnapshotDownloader* snapshotDownloader() const;
@@ -96,6 +105,7 @@ public:
     void initByUrl(const QUrl& url);
 
 signals:
+    void deviceTypeChanged(const QString& deviceType);
     void deviceNameChanged(const QString& deviceName);
     void hostNameChanged(const QString& hostName);
     void userNameChanged(const QString& userName);
@@ -132,7 +142,15 @@ private slots:
     void profileListAvailable(const QList<OnvifMediaProfile>& profileList);
 
 private:
+    bool isSofia() const { return m_deviceType == QLatin1String("sofia"); }
+    void ensureSofia();
+    void sofiaPtz(const QString& command);
+
     OnvifDeviceConnection m_connection;
+    QString m_deviceType = QStringLiteral("onvif");
+    SofiaConnection* m_sofia = nullptr;       // native PTZ/control (lazy)
+    SofiaMediaServer* m_sofiaMedia = nullptr; // native video → local HTTP (lazy)
+    QString m_sofiaLastPtz;                    // command to send Stop for
     QString m_deviceName;
     QString m_hostName;
     QString m_userName;

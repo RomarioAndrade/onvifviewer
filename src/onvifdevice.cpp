@@ -21,10 +21,30 @@
 #include "onvifmedia2service.h"
 #include "onvifptzservice.h"
 #include "onvifsnapshotdownloader.h"
+#include "sofiaconnection.h"
+#include "sofiamediaserver.h"
 #include <QDebug>
 #include <QUrlQuery>
 #include <QVariantMap>
 #include <algorithm>
+
+namespace {
+// Sofia devices default to port 34567; the hostname field may carry ":port".
+void splitHostPort(const QString& hostName, QString* host, quint16* port)
+{
+    const int colon = hostName.lastIndexOf(QLatin1Char(':'));
+    if (colon > 0) {
+        *host = hostName.left(colon);
+        *port = static_cast<quint16>(hostName.mid(colon + 1).toUInt());
+        if (*port == 0) {
+            *port = 34567;
+        }
+    } else {
+        *host = hostName;
+        *port = 34567;
+    }
+}
+}
 
 OnvifDevice::OnvifDevice(QObject* parent) :
     QObject(parent),
@@ -45,8 +65,54 @@ OnvifDevice::OnvifDevice(QObject* parent) :
     qRegisterMetaType<OnvifDeviceInformation> ("OnvifDeviceInformation");
 }
 
+QString OnvifDevice::deviceType() const
+{
+    return m_deviceType;
+}
+
+void OnvifDevice::setDeviceType(const QString& deviceType)
+{
+    if (m_deviceType != deviceType) {
+        m_deviceType = deviceType;
+        emit deviceTypeChanged(m_deviceType);
+        emit ptzCapabilitiesChanged();
+        emit supportsSnapshotUriChanged(supportsSnapshotUri());
+    }
+}
+
+void OnvifDevice::ensureSofia()
+{
+    if (!m_sofia) {
+        m_sofia = new SofiaConnection(this);
+        connect(m_sofia, &SofiaConnection::errorStringChanged,
+                this, &OnvifDevice::errorStringChanged);
+    }
+    if (!m_sofiaMedia) {
+        m_sofiaMedia = new SofiaMediaServer(this);
+    }
+    QString host;
+    quint16 port = 34567;
+    splitHostPort(m_hostName, &host, &port);
+    m_sofia->setHostname(host, port);
+    m_sofia->setCredentials(m_userName, m_password);
+    m_sofiaMedia->setHostname(host, port);
+    m_sofiaMedia->setCredentials(m_userName, m_password);
+}
+
 void OnvifDevice::connectToDevice()
 {
+    if (isSofia()) {
+        if (m_hostName.isEmpty()) {
+            return;
+        }
+        ensureSofia();
+        m_sofia->connectToDevice();
+        // Serve the native video as a local MPEG-TS URL for the normal player.
+        m_sofiaMedia->start();
+        emit streamUriChanged(streamUri());
+        emit ptzCapabilitiesChanged();
+        return;
+    }
     // Only talk ONVIF when we have a host. A camera configured with just a
     // manual stream URL (e.g. a bridged RTSP source) needs no ONVIF at all.
     if (!m_hostName.isEmpty()) {
@@ -59,6 +125,13 @@ void OnvifDevice::connectToDevice()
 
 void OnvifDevice::reconnectToDevice()
 {
+    if (isSofia()) {
+        if (m_sofiaMedia) {
+            m_sofiaMedia->stop();
+        }
+        connectToDevice();
+        return;
+    }
     if (!m_hostName.isEmpty()) {
         m_connection.disconnectFromDevice();
         m_connection.connectToDevice();
@@ -80,6 +153,10 @@ OnvifSnapshotDownloader* OnvifDevice::snapshotDownloader() const
 
 bool OnvifDevice::supportsSnapshotUri() const
 {
+    // Sofia devices have no snapshot endpoint yet; they always stream live.
+    if (isSofia()) {
+        return false;
+    }
     // A manual-URL-only camera (no ONVIF host) has no snapshot endpoint.
     if (!m_manualStreamUri.isEmpty() && m_hostName.isEmpty()) {
         return false;
@@ -114,6 +191,10 @@ QUrl OnvifDevice::snapshotUri() const
 
 QUrl OnvifDevice::streamUri() const
 {
+    // Sofia devices stream through the local MPEG-TS bridge.
+    if (isSofia()) {
+        return m_sofiaMedia ? QUrl(m_sofiaMedia->url()) : QUrl();
+    }
     // A manually configured stream URL overrides ONVIF discovery.
     if (!m_manualStreamUri.isEmpty()) {
         return QUrl(m_manualStreamUri);
@@ -402,6 +483,9 @@ void OnvifDevice::setPassword(const QString& password)
 
 bool OnvifDevice::isPanTiltSupported() const
 {
+    if (isSofia()) {
+        return true; // Sofia PTZ cameras accept native OPPTZControl moves.
+    }
     if (m_selectedMediaProfile.ptzNodeToken().isEmpty()) {
         return false;
     }
@@ -431,6 +515,9 @@ bool OnvifDevice::isPtzHomeSupported() const
 
 bool OnvifDevice::isZoomSupported() const
 {
+    if (isSofia()) {
+        return true;
+    }
     const OnvifPtzService* ptzService = m_connection.getPtzService();
     if (ptzService) {
         return ptzService->isRelativeZoomSupported(m_selectedMediaProfile);
@@ -488,8 +575,35 @@ void OnvifDevice::ptzRight()
     ptzMove(0.1f, 0);
 }
 
+void OnvifDevice::sofiaPtz(const QString& command)
+{
+    if (!m_sofia) {
+        return;
+    }
+    m_sofiaLastPtz = command;
+    m_sofia->ptzStart(command, 5);
+    // The UI issues one-shot clicks; auto-stop shortly after, like ONVIF.
+    m_ptzStopTimer.start(500);
+}
+
 void OnvifDevice::ptzMove(float xFraction, float yFraction)
 {
+    if (isSofia()) {
+        QString dir;
+        if (yFraction > 0) {
+            dir = QStringLiteral("DirectionUp");
+        } else if (yFraction < 0) {
+            dir = QStringLiteral("DirectionDown");
+        } else if (xFraction > 0) {
+            dir = QStringLiteral("DirectionRight");
+        } else if (xFraction < 0) {
+            dir = QStringLiteral("DirectionLeft");
+        }
+        if (!dir.isEmpty()) {
+            sofiaPtz(dir);
+        }
+        return;
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     Q_ASSERT(ptzService);
     if (ptzService->isRelativeMoveSupported(m_selectedMediaProfile) && !preferContinuousMove()) {
@@ -502,6 +616,9 @@ void OnvifDevice::ptzMove(float xFraction, float yFraction)
 
 void OnvifDevice::ptzHome()
 {
+    if (isSofia()) {
+        return; // Sofia home/preset not wired yet.
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     Q_ASSERT(ptzService);
     ptzService->goToHome(m_selectedMediaProfile);
@@ -509,6 +626,9 @@ void OnvifDevice::ptzHome()
 
 void OnvifDevice::ptzSaveHomePosition()
 {
+    if (isSofia()) {
+        return;
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     Q_ASSERT(ptzService);
     ptzService->saveHomePosition(m_selectedMediaProfile);
@@ -516,6 +636,12 @@ void OnvifDevice::ptzSaveHomePosition()
 
 void OnvifDevice::ptzStop()
 {
+    if (isSofia()) {
+        if (m_sofia && !m_sofiaLastPtz.isEmpty()) {
+            m_sofia->ptzStop(m_sofiaLastPtz);
+        }
+        return;
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     if (ptzService) {
         ptzService->stopMovement(m_selectedMediaProfile);
@@ -524,6 +650,10 @@ void OnvifDevice::ptzStop()
 
 void OnvifDevice::ptzZoomIn()
 {
+    if (isSofia()) {
+        sofiaPtz(QStringLiteral("ZoomTile")); // telephoto
+        return;
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     Q_ASSERT(ptzService);
     ptzService->relativeZoom(m_selectedMediaProfile, 0.1f);
@@ -531,6 +661,10 @@ void OnvifDevice::ptzZoomIn()
 
 void OnvifDevice::ptzZoomOut()
 {
+    if (isSofia()) {
+        sofiaPtz(QStringLiteral("ZoomWide"));
+        return;
+    }
     OnvifPtzService* ptzService = m_connection.getPtzService();
     Q_ASSERT(ptzService);
     ptzService->relativeZoom(m_selectedMediaProfile, -0.1f);

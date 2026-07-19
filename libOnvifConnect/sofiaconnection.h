@@ -69,6 +69,7 @@ private slots:
 
 private:
     void sendCommand(quint16 msgId, const QByteArray& jsonPayload);
+    void sendPtz(const QString& command, int step, int preset, int channel);
     void handlePacket(quint16 msgId, quint32 session, const QByteArray& payload);
     QByteArray sessionHex() const;
     void setErrorString(const QString& error);

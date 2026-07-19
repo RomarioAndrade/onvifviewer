@@ -42,6 +42,7 @@ void OnvifDeviceManager::loadDevices()
     for (int i = 0; i < size; i++) {
         settings.setArrayIndex(i);
         OnvifDevice* device = createNewDevice();
+        device->setDeviceType(settings.value("deviceType", "onvif").toString());
         device->setDeviceName(settings.value("deviceName").toString());
         device->setHostName(settings.value("hostName").toString());
         device->setUserName(settings.value("userName").toString());
@@ -64,6 +65,7 @@ void OnvifDeviceManager::saveDevices()
     for (int i = 0; i < m_deviceList.count(); i++) {
         auto device = m_deviceList.at(i);
         settings.setArrayIndex(i);
+        settings.setValue("deviceType", device->deviceType());
         settings.setValue("deviceName", device->deviceName());
         settings.setValue("hostName", device->hostName());
         settings.setValue("userName", device->userName());
