@@ -7,12 +7,11 @@
         <file>CameraStatusBadge.qml</file>
         <file>OnvifCameraViewer.qml</file>
         <file>OnvifStreamViewer.qml</file>
-        <file>DeviceSettingsPage.qml</file>
-        <file>OverviewPage.qml</file>
-        <file>MosaicPage.qml</file>
-        <file>DeviceViewerPage.qml</file>
-        <file>AddDemoCamera.qml</file>
-        <file>DiscoverCamera.qml</file>
+        <file>MainPage.qml</file>
+        <file>CameraGridView.qml</file>
+        <file>CameraSingleView.qml</file>
+        <file>DeviceSettingsSheet.qml</file>
+        <file>AddCameraSheet.qml</file>
         <file>AboutPage.qml</file>
     </qresource>
 </RCC>

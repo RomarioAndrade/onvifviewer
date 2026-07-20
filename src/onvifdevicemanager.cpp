@@ -95,6 +95,10 @@ QList<OnvifDevice*> OnvifDeviceManager::deviceList() const
 
 OnvifDevice* OnvifDeviceManager::at(int i)
 {
+    // The UI uses -1 for "no camera selected" (grid view); be lenient.
+    if (i < 0 || i >= m_deviceList.size()) {
+        return nullptr;
+    }
     return m_deviceList.at(i);
 }
 
