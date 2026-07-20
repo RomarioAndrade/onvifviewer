@@ -24,6 +24,7 @@
 #ifndef SOFIAMEDIASERVER_H
 #define SOFIAMEDIASERVER_H
 
+#include <QElapsedTimer>
 #include <QObject>
 #include <QSet>
 
@@ -71,8 +72,10 @@ private:
     QSet<QTcpSocket*> m_clients;   // all connected players
     QSet<QTcpSocket*> m_ready;     // players that have received a key frame
     QSet<QTcpSocket*> m_snapshotClients; // pending /snapshot.jpg requests
-    quint64 m_pts = 0;
-    int m_fps = 25;
+    // PTS comes from the arrival clock, not the camera's advertised fps: VBR
+    // cameras lie about the rate, and a wrong PTS pace makes the player drift
+    // (growing delay or constant rebuffering).
+    QElapsedTimer m_clock;
     bool m_upstreamRunning = false;
 };
 

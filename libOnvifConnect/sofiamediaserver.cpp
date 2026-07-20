@@ -123,7 +123,6 @@ QString SofiaMediaServer::snapshotUrl() const
 void SofiaMediaServer::startUpstreamIfNeeded()
 {
     if (!m_upstreamRunning) {
-        m_pts = 0;
         m_muxer->reset();
         m_stream->start();
         m_upstreamRunning = true;
@@ -219,27 +218,25 @@ void SofiaMediaServer::onVideoFrame(const QByteArray& nal, bool keyFrame)
     if (m_clients.isEmpty()) {
         return;
     }
-    if (m_fps <= 0) {
-        m_fps = 25;
+    // Stamp each frame with its real arrival time (90 kHz units). The clock
+    // keeps running across upstream restarts so the timeline stays monotonic.
+    if (!m_clock.isValid()) {
+        m_clock.start();
     }
-    const int streamFps = m_stream->fps();
-    if (streamFps > 0) {
-        m_fps = streamFps;
-    }
+    const quint64 pts = quint64(m_clock.elapsed()) * 90;
 
     if (keyFrame) {
         // A key frame is a clean entry point: (re)send PAT/PMT so late joiners
         // can start decoding, and promote them to "ready".
-        const QByteArray pkt = m_muxer->patPmt() + m_muxer->muxAccessUnit(nal, true, m_pts);
+        const QByteArray pkt = m_muxer->patPmt() + m_muxer->muxAccessUnit(nal, true, pts);
         for (QTcpSocket* c : std::as_const(m_clients)) {
             c->write(pkt);
             m_ready.insert(c);
         }
     } else {
-        const QByteArray pkt = m_muxer->muxAccessUnit(nal, false, m_pts);
+        const QByteArray pkt = m_muxer->muxAccessUnit(nal, false, pts);
         for (QTcpSocket* c : std::as_const(m_ready)) {
             c->write(pkt);
         }
     }
-    m_pts += 90000 / m_fps;
 }
