@@ -51,7 +51,19 @@ void SofiaMediaServer::setCredentials(const QString& username, const QString& pa
 
 void SofiaMediaServer::setStream(const QString& streamType)
 {
-    m_stream->setStream(streamType);
+    const QString type = streamType.isEmpty() ? QStringLiteral("Main") : streamType;
+    if (type == m_stream->stream()) {
+        return;
+    }
+    m_stream->setStream(type);
+    if (m_upstreamRunning) {
+        // Live switch: reopen the upstream on the new stream and hold every
+        // client to its next key frame (which also re-sends PAT/PMT). The PTS
+        // keeps counting up so the TS timeline stays monotonic.
+        m_stream->stop();
+        m_ready.clear();
+        m_stream->start();
+    }
 }
 
 void SofiaMediaServer::setControlConnection(SofiaConnection* control)

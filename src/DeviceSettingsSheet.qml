@@ -191,13 +191,16 @@ Kirigami.OverlaySheet {
             ComboBox {
                 id: profileCombo
                 Kirigami.FormData.label: i18n("Video profile:")
-                visible: !sheet.isSofia
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
                 textRole: "label"
                 valueRole: "token"
-                // The profile list only arrives after the camera connects.
-                model: selectedDevice ? selectedDevice.profiles : []
+                // Sofia cameras always offer exactly these two streams; the
+                // ONVIF profile list only arrives after the camera connects.
+                model: sheet.isSofia ? [
+                    { label: i18n("Main stream (high quality)"), token: "Main" },
+                    { label: i18n("Substream (fast, lower quality)"), token: "Extra1" }
+                ] : (selectedDevice ? selectedDevice.profiles : [])
                 enabled: count > 0
                 displayText: count > 0 ? currentText : i18n("Loading…")
                 function syncSelection() {
@@ -214,6 +217,10 @@ Kirigami.OverlaySheet {
                 Connections {
                     target: selectedDevice
                     function onSelectedProfileTokenChanged() { profileCombo.syncSelection() }
+                }
+                Connections {
+                    target: sheet
+                    function onVisibleChanged() { if (sheet.visible) profileCombo.syncSelection() }
                 }
             }
             Kirigami.Separator {

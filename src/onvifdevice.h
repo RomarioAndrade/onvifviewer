@@ -145,6 +145,7 @@ private slots:
 
 private:
     bool isSofia() const { return m_deviceType == QLatin1String("sofia"); }
+    QString sofiaStreamType() const;
     void ensureSofia();
     void sofiaPtz(const QString& command, bool hold = false);
 

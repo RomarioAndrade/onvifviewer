@@ -37,6 +37,7 @@ public:
     void setHostname(const QString& hostname, quint16 port = 34567);
     void setCredentials(const QString& username, const QString& password);
     void setStream(const QString& streamType); // "Main" or "Extra1"
+    QString stream() const { return m_streamType; }
 
     void start();
     void stop();

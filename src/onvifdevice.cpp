@@ -77,7 +77,18 @@ void OnvifDevice::setDeviceType(const QString& deviceType)
         emit deviceTypeChanged(m_deviceType);
         emit ptzCapabilitiesChanged();
         emit supportsSnapshotUriChanged(supportsSnapshotUri());
+        // The profile list has a different meaning per protocol (ONVIF media
+        // profiles vs the fixed Sofia Main/Extra1 pair).
+        emit profilesChanged();
+        emit selectedProfileTokenChanged(selectedProfileToken());
     }
+}
+
+// Sofia devices have exactly two streams; anything unknown falls back to Main.
+QString OnvifDevice::sofiaStreamType() const
+{
+    return m_preferredProfileToken == QLatin1String("Extra1")
+            ? QStringLiteral("Extra1") : QStringLiteral("Main");
 }
 
 void OnvifDevice::ensureSofia()
@@ -100,6 +111,7 @@ void OnvifDevice::ensureSofia()
     m_sofia->setCredentials(m_userName, m_password);
     m_sofiaMedia->setHostname(host, port);
     m_sofiaMedia->setCredentials(m_userName, m_password);
+    m_sofiaMedia->setStream(sofiaStreamType());
 }
 
 void OnvifDevice::connectToDevice()
@@ -201,9 +213,12 @@ QUrl OnvifDevice::snapshotUri() const
 
 QUrl OnvifDevice::streamUri() const
 {
-    // Sofia devices stream through the local MPEG-TS bridge.
+    // Sofia devices stream through the local MPEG-TS bridge. The stream type
+    // is part of the path so a profile switch yields a fresh URL, making the
+    // player reconnect (the server serves the live TS on any non-snapshot path).
     if (isSofia()) {
-        return m_sofiaMedia ? QUrl(m_sofiaMedia->url()) : QUrl();
+        const QString base = m_sofiaMedia ? m_sofiaMedia->url() : QString();
+        return base.isEmpty() ? QUrl() : QUrl(base + QStringLiteral("live/") + sofiaStreamType());
     }
     // A manually configured stream URL overrides ONVIF discovery.
     if (!m_manualStreamUri.isEmpty()) {
@@ -362,6 +377,9 @@ QVariantList OnvifDevice::profiles() const
 
 QString OnvifDevice::selectedProfileToken() const
 {
+    if (isSofia()) {
+        return sofiaStreamType();
+    }
     if (!m_selectedMediaProfile.token().isEmpty()) {
         return m_selectedMediaProfile.token();
     }
@@ -374,6 +392,17 @@ void OnvifDevice::setSelectedProfileToken(const QString& token)
         return;
     }
     m_preferredProfileToken = token;
+
+    if (isSofia()) {
+        // Live switch: the media server reopens the upstream on the new
+        // stream, and the new URL makes the player reconnect to it.
+        if (m_sofiaMedia) {
+            m_sofiaMedia->setStream(sofiaStreamType());
+        }
+        emit selectedProfileTokenChanged(selectedProfileToken());
+        emit streamUriChanged(streamUri());
+        return;
+    }
 
     // Apply immediately (live switch) if this profile is already available;
     // otherwise remember it until the profile list arrives after connecting.
