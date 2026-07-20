@@ -27,6 +27,9 @@ Item {
     id: singleView
 
     readonly property bool isFullScreen: applicationWindow().visibility === Window.FullScreen
+    // Preview audio starts muted; the speaker button toggles it. Applies to the
+    // ONVIF stream (Sofia's local bridge is video-only).
+    property bool audioMuted: true
 
     // Press-and-hold movement: start on press, stop on release.
     component PtzButton: QQC2.ToolButton {
@@ -87,6 +90,15 @@ Item {
                 text: i18nc("recording indicator", "● REC")
                 color: Kirigami.Theme.negativeTextColor
                 font.bold: true
+            }
+            QQC2.ToolButton {
+                visible: selectedDevice && selectedDevice.deviceType !== "sofia"
+                icon.name: singleView.audioMuted ? "audio-volume-muted" : "audio-volume-high"
+                text: singleView.audioMuted ? i18nc("enable preview audio", "Unmute") : i18nc("disable preview audio", "Mute")
+                display: QQC2.AbstractButton.IconOnly
+                onClicked: singleView.audioMuted = !singleView.audioMuted
+                QQC2.ToolTip.text: text
+                QQC2.ToolTip.visible: hovered
             }
             QQC2.ToolButton {
                 visible: selectedDevice && selectedDevice.canRecord
@@ -172,6 +184,7 @@ Item {
             id: viewerItem
             objectName: "cameraViewer"
             camera: selectedDevice
+            muted: singleView.audioMuted
             visible: selectedDevice && !selectedDevice.errorString
             Layout.fillHeight: true
             Layout.fillWidth: true
