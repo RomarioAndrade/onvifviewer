@@ -46,6 +46,22 @@ Item {
         onActivated: applicationWindow().visibility = Window.Windowed
     }
 
+    // Let the user know where recordings go, and surface failures.
+    Connections {
+        target: selectedDevice
+        ignoreUnknownSignals: true
+        function onIsRecordingChanged() {
+            if (selectedDevice.isRecording)
+                showPassiveNotification(i18n("Recording to %1", selectedDevice.recordingFile))
+            else if (!selectedDevice.recordingError)
+                showPassiveNotification(i18n("Recording saved to %1", selectedDevice.recordingFile))
+        }
+        function onRecordingErrorChanged() {
+            if (selectedDevice.recordingError)
+                showPassiveNotification(i18n("Recording error: %1", selectedDevice.recordingError))
+        }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Kirigami.Units.smallSpacing
@@ -65,6 +81,27 @@ Item {
             CameraStatusBadge {
                 errorString: selectedDevice ? selectedDevice.errorString : ""
                 isLive: selectedDevice && !selectedDevice.errorString && String(selectedDevice.streamUri).length > 0
+            }
+            QQC2.Label {
+                visible: selectedDevice && selectedDevice.isRecording
+                text: i18nc("recording indicator", "● REC")
+                color: Kirigami.Theme.negativeTextColor
+                font.bold: true
+            }
+            QQC2.ToolButton {
+                visible: selectedDevice && selectedDevice.canRecord
+                icon.name: selectedDevice && selectedDevice.isRecording ? "media-playback-stop" : "media-record"
+                text: selectedDevice && selectedDevice.isRecording ? i18n("Stop recording") : i18n("Record")
+                display: QQC2.AbstractButton.IconOnly
+                icon.color: selectedDevice && selectedDevice.isRecording ? Kirigami.Theme.negativeTextColor : undefined
+                onClicked: {
+                    if (selectedDevice.isRecording)
+                        selectedDevice.stopRecording()
+                    else
+                        selectedDevice.startRecording(deviceManager.recordingFolder)
+                }
+                QQC2.ToolTip.text: text
+                QQC2.ToolTip.visible: hovered
             }
             QQC2.ToolButton {
                 icon.name: "settings-configure"

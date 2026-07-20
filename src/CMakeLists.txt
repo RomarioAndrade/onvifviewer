@@ -21,6 +21,7 @@ set(${PROJECT_NAME}_SRCS
     "onvifdevicediscover.cpp"
     "onvifdevicemanager.cpp"
     "onvifdevicemanagermodel.cpp"
+    "onvifrecorder.cpp"
     "onvifsnapshotdownloader.cpp"
     "onvifsnapshotviewer.cpp"
     "qml.qrc"

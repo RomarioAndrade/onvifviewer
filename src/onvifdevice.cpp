@@ -50,7 +50,8 @@ OnvifDevice::OnvifDevice(QObject* parent) :
     QObject(parent),
     m_preferContinuousMove(false),
     m_cachedDeviceInformation(new OnvifDeviceInformation(this)),
-    m_cachedSnapshotDownloader(new OnvifSnapshotDownloader(this))
+    m_cachedSnapshotDownloader(new OnvifSnapshotDownloader(this)),
+    m_recorder(new OnvifRecorder(this))
 {
     connect(&m_connection, &OnvifDeviceConnection::servicesAvailable,
             this, &OnvifDevice::servicesAvailable);
@@ -61,8 +62,57 @@ OnvifDevice::OnvifDevice(QObject* parent) :
     connect(&m_ptzStopTimer, &QTimer::timeout,
             this, &OnvifDevice::ptzStop);
 
+    // Surface the recorder's state as device properties for QML.
+    connect(m_recorder, &OnvifRecorder::isRecordingChanged,
+            this, &OnvifDevice::isRecordingChanged);
+    connect(m_recorder, &OnvifRecorder::outputFileChanged,
+            this, &OnvifDevice::recordingFileChanged);
+    connect(m_recorder, &OnvifRecorder::errorStringChanged,
+            this, &OnvifDevice::recordingErrorChanged);
+    // canRecord depends on both the protocol and whether a stream URL exists yet.
+    connect(this, &OnvifDevice::streamUriChanged,
+            this, [this]() { emit canRecordChanged(canRecord()); });
+    connect(this, &OnvifDevice::deviceTypeChanged,
+            this, [this]() { emit canRecordChanged(canRecord()); });
+
     // TODO: Figure out why qRegisterMetaType is needed, when we already called Q_DECLARE_METATYPE
     qRegisterMetaType<OnvifDeviceInformation> ("OnvifDeviceInformation");
+}
+
+bool OnvifDevice::canRecord() const
+{
+    // Recording drives ffmpeg against an RTSP URL; that is the ONVIF/manual-URL
+    // path. Sofia streams through a local video-only bridge and is excluded.
+    return !isSofia() && !streamUri().isEmpty();
+}
+
+bool OnvifDevice::isRecording() const
+{
+    return m_recorder->isRecording();
+}
+
+QString OnvifDevice::recordingFile() const
+{
+    return m_recorder->outputFile();
+}
+
+QString OnvifDevice::recordingError() const
+{
+    return m_recorder->errorString();
+}
+
+void OnvifDevice::startRecording(const QString& folder)
+{
+    if (isSofia()) {
+        return; // ONVIF only for now.
+    }
+    const QString baseName = m_deviceName.isEmpty() ? m_hostName : m_deviceName;
+    m_recorder->start(streamUri(), folder, baseName);
+}
+
+void OnvifDevice::stopRecording()
+{
+    m_recorder->stop();
 }
 
 QString OnvifDevice::deviceType() const

@@ -25,12 +25,39 @@
 #endif
 #include <QPointer>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QUrl>
 #include <QQmlContext>
 
 OnvifDeviceManager::OnvifDeviceManager(QObject* parent) :
     QObject(parent)
 {
     qRegisterMetaType<QList<OnvifDevice*>> ("QList<OnvifDevice*>");
+
+    QSettings settings;
+    m_recordingFolder = settings.value("recording/folder",
+        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+}
+
+QString OnvifDeviceManager::recordingFolder() const
+{
+    return m_recordingFolder;
+}
+
+void OnvifDeviceManager::setRecordingFolder(const QString& folder)
+{
+    QString path = folder;
+    // The QML FolderDialog hands back a file:// URL; store a plain local path.
+    if (path.startsWith(QLatin1String("file://"))) {
+        path = QUrl(path).toLocalFile();
+    }
+    if (m_recordingFolder == path) {
+        return;
+    }
+    m_recordingFolder = path;
+    QSettings settings;
+    settings.setValue("recording/folder", path);
+    emit recordingFolderChanged(m_recordingFolder);
 }
 
 void OnvifDeviceManager::loadDevices()

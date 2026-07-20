@@ -18,6 +18,7 @@ import net.meijn.onvifviewer 1.0
 import org.kde.kirigami as Kirigami
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 
 // Settings of the selected camera as an overlay: the camera list and video
@@ -51,6 +52,13 @@ Kirigami.OverlaySheet {
             hasOtherSettingsChanged = false
             isNewDevice = false
         }
+    }
+
+    FolderDialog {
+        id: recordingFolderDialog
+        title: i18n("Choose recording folder")
+        currentFolder: deviceManager.recordingFolder ? Qt.resolvedUrl("file://" + deviceManager.recordingFolder) : ""
+        onAccepted: deviceManager.recordingFolder = selectedFolder
     }
 
     Kirigami.PromptDialog {
@@ -226,6 +234,27 @@ Kirigami.OverlaySheet {
                 Connections {
                     target: sheet
                     function onVisibleChanged() { if (sheet.visible) profileCombo.syncSelection() }
+                }
+            }
+            Kirigami.Separator {
+                Kirigami.FormData.isSection: true
+                Kirigami.FormData.label: i18n("Recording (all cameras)")
+                visible: !sheet.isSofia
+            }
+            RowLayout {
+                Kirigami.FormData.label: i18n("Save folder:")
+                visible: !sheet.isSofia
+                Layout.fillWidth: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 20
+                Label {
+                    text: deviceManager.recordingFolder
+                    elide: Text.ElideMiddle
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: i18n("Browse…")
+                    icon.name: "document-open-folder"
+                    onClicked: recordingFolderDialog.open()
                 }
             }
             Kirigami.Separator {

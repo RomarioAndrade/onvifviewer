@@ -21,6 +21,7 @@
 #include "onvifmediaprofile.h"
 #include "onvifdeviceinformation.h"
 #include "onvifsnapshotdownloader.h"
+#include "onvifrecorder.h"
 #include <QTimer>
 #include <QObject>
 #include <QUrl>
@@ -54,6 +55,12 @@ class OnvifDevice : public QObject
     Q_PROPERTY(OnvifSnapshotDownloader* snapshotDownloader READ snapshotDownloader NOTIFY snapshotDownloaderChanged)
     Q_PROPERTY(QVariantList profiles READ profiles NOTIFY profilesChanged)
     Q_PROPERTY(QString selectedProfileToken READ selectedProfileToken WRITE setSelectedProfileToken NOTIFY selectedProfileTokenChanged)
+    // Recording (ONVIF only): drives an ffmpeg subprocess that stream-copies the
+    // RTSP feed to a file. canRecord gates the UI to connected ONVIF cameras.
+    Q_PROPERTY(bool canRecord READ canRecord NOTIFY canRecordChanged)
+    Q_PROPERTY(bool isRecording READ isRecording NOTIFY isRecordingChanged)
+    Q_PROPERTY(QString recordingFile READ recordingFile NOTIFY recordingFileChanged)
+    Q_PROPERTY(QString recordingError READ recordingError NOTIFY recordingErrorChanged)
 public:
     explicit OnvifDevice(QObject* parent = nullptr);
 
@@ -102,6 +109,16 @@ public:
     QString selectedProfileToken() const;
     void setSelectedProfileToken(const QString& token);
 
+    bool canRecord() const;
+    bool isRecording() const;
+    QString recordingFile() const;
+    QString recordingError() const;
+
+    // Start recording the current stream into `folder` (empty = default Movies
+    // folder). No-op for Sofia devices. stopRecording finalizes the file.
+    Q_INVOKABLE void startRecording(const QString& folder = QString());
+    Q_INVOKABLE void stopRecording();
+
     void initByUrl(const QUrl& url);
 
 signals:
@@ -123,6 +140,10 @@ signals:
     void ptzCapabilitiesChanged();
     void profilesChanged();
     void selectedProfileTokenChanged(const QString& token);
+    void canRecordChanged(bool canRecord);
+    void isRecordingChanged(bool isRecording);
+    void recordingFileChanged(const QString& recordingFile);
+    void recordingErrorChanged(const QString& recordingError);
 
 public slots:
     void ptzUp();
@@ -171,6 +192,7 @@ private:
     OnvifDeviceInformation* m_cachedDeviceInformation;
     QTimer m_ptzStopTimer;
     OnvifSnapshotDownloader* m_cachedSnapshotDownloader;
+    OnvifRecorder* m_recorder;
 };
 
 #endif // ONVIFDEVICE_H
