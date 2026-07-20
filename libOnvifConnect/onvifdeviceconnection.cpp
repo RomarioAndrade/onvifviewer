@@ -444,17 +444,29 @@ void OnvifDeviceConnectionPrivate::handleSoapError(const KDSoapMessage& fault, c
 {
     Q_Q(OnvifDeviceConnection);
     errorString = "";
-    if (fault.childValues().child(QLatin1String("faultcode")).value().toInt() == QNetworkReply::OperationCanceledError) {
+    const int faultCode = fault.childValues().child(QLatin1String("faultcode")).value().toInt();
+    const QString faultString = fault.faultAsString();
+    if (faultCode == QNetworkReply::OperationCanceledError) {
         errorString = "A possible authentication error. Please install a more recent version of KDSoap for more detailed error message.";
-    } else if (fault.childValues().child(QLatin1String("faultcode")).value().toInt() == QNetworkReply::AuthenticationRequiredError) {
-        errorString = "Authentication error occured. Credentials are probably incorrect.";
+    } else if (faultCode == QNetworkReply::AuthenticationRequiredError
+               || faultString.contains(QLatin1String("NotAuthorized"), Qt::CaseInsensitive)) {
+        // ter:NotAuthorized is the SOAP-level rejection a camera returns when the
+        // WS-UsernameToken credentials don't match. Without this branch it fell
+        // through to the raw-fault dump below, which is opaque to the user. Many
+        // devices keep a separate ONVIF account, so its password can differ from
+        // the web/app login (on some models the ONVIF password is even blank);
+        // hint at that instead.
+        errorString = "Authentication failed: the camera rejected the credentials. "
+                      "Check the username and password. Many cameras use a separate "
+                      "ONVIF account, so the ONVIF password may differ from the web/app "
+                      "login (on some models it is blank).";
         if (!isHttpDigestSupported && !isUsernameTokenSupported) {
             errorString = "None of the authentication methods are available";
         }
     } else {
-        errorString = location + ": " + fault.faultAsString();
+        errorString = location + ": " + faultString;
     }
-    qCritical() << errorString;
+    qCritical() << errorString << "(SOAP fault:" << faultString << ")";
     q->disconnectFromDevice();
     emit q->errorStringChanged(errorString);
 }
