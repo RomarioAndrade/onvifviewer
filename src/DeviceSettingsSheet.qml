@@ -92,6 +92,7 @@ Kirigami.OverlaySheet {
                 }
             }
             ComboBox {
+                id: protocolCombo
                 Kirigami.FormData.label: i18n("Protocol:")
                 Layout.fillWidth: true
                 Layout.preferredWidth: Kirigami.Units.gridUnit * 20
@@ -111,7 +112,10 @@ Kirigami.OverlaySheet {
                 }
                 Connections {
                     target: sheet
-                    function onVisibleChanged() { if (sheet.visible) syncSelection() }
+                    // Qualify the call: inside Connections the ComboBox's own
+                    // methods are out of scope, so a bare syncSelection() throws
+                    // ReferenceError and the combo never re-syncs on reopen.
+                    function onVisibleChanged() { if (sheet.visible) protocolCombo.syncSelection() }
                 }
             }
             TextField {
@@ -160,6 +164,7 @@ Kirigami.OverlaySheet {
                 }
             }
             ComboBox {
+                id: transportCombo
                 Kirigami.FormData.label: i18n("Stream transport:")
                 visible: !sheet.isSofia
                 Layout.fillWidth: true
@@ -185,7 +190,7 @@ Kirigami.OverlaySheet {
                 }
                 Connections {
                     target: sheet
-                    function onVisibleChanged() { if (sheet.visible) syncSelection() }
+                    function onVisibleChanged() { if (sheet.visible) transportCombo.syncSelection() }
                 }
             }
             ComboBox {
