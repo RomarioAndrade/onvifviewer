@@ -39,10 +39,13 @@ public:
     QString errorString() const;
 
     // Spawns ffmpeg to copy `streamUri` into `folder`/`baseName`_<timestamp>.mkv.
+    // When `segmentSeconds` > 0 the capture is split into a numbered series of
+    // that length (…_000.mkv, _001.mkv, …) instead of one growing file.
     // Returns false (and sets errorString) on an immediate failure: no ffmpeg on
     // PATH, an empty/invalid URI, or an unwritable folder. A successful start is
     // confirmed asynchronously through isRecordingChanged.
-    bool start(const QUrl& streamUri, const QString& folder, const QString& baseName);
+    bool start(const QUrl& streamUri, const QString& folder, const QString& baseName,
+               int segmentSeconds = 0);
     void stop();
 
 signals:

@@ -101,13 +101,13 @@ QString OnvifDevice::recordingError() const
     return m_recorder->errorString();
 }
 
-void OnvifDevice::startRecording(const QString& folder)
+void OnvifDevice::startRecording(const QString& folder, int segmentSeconds)
 {
     if (isSofia()) {
         return; // ONVIF only for now.
     }
     const QString baseName = m_deviceName.isEmpty() ? m_hostName : m_deviceName;
-    m_recorder->start(streamUri(), folder, baseName);
+    m_recorder->start(streamUri(), folder, baseName, segmentSeconds);
 }
 
 void OnvifDevice::stopRecording()

@@ -70,7 +70,8 @@ static QString sanitizeBaseName(const QString& name)
     return base;
 }
 
-bool OnvifRecorder::start(const QUrl& streamUri, const QString& folder, const QString& baseName)
+bool OnvifRecorder::start(const QUrl& streamUri, const QString& folder, const QString& baseName,
+                          int segmentSeconds)
 {
     if (m_recording) {
         return true;
@@ -99,20 +100,40 @@ bool OnvifRecorder::start(const QUrl& streamUri, const QString& folder, const QS
     }
 
     const QString stamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd-HHmmss"));
-    const QString fileName = QStringLiteral("%1_%2.mkv").arg(sanitizeBaseName(baseName), stamp);
-    m_outputFile = dir.absoluteFilePath(fileName);
-    emit outputFileChanged(m_outputFile);
+    const QString base = sanitizeBaseName(baseName);
 
-    // Matroska + stream-copy tolerates any camera codec (H.264/H.265 video,
-    // AAC/G.711 audio) and stays playable even if the process is interrupted.
-    const QStringList args = QStringList()
+    // Read the RTSP feed over TCP and copy every stream through untouched, so
+    // any camera codec (H.264/H.265 video, AAC/G.711 audio) is captured without
+    // re-encoding. Matroska stays playable even if the process is interrupted.
+    QStringList args = QStringList()
         << QStringLiteral("-nostdin")
         << QStringLiteral("-loglevel") << QStringLiteral("error")
         << QStringLiteral("-rtsp_transport") << QStringLiteral("tcp")
         << QStringLiteral("-i") << streamUri.toString(QUrl::FullyEncoded)
-        << QStringLiteral("-c") << QStringLiteral("copy")
-        << QStringLiteral("-f") << QStringLiteral("matroska")
-        << QStringLiteral("-y") << m_outputFile;
+        << QStringLiteral("-c") << QStringLiteral("copy");
+
+    if (segmentSeconds > 0) {
+        // Split into a numbered series sharing this session's timestamp prefix,
+        // e.g. camera_20260720-103400_000.mkv, _001.mkv, … Each segment is a
+        // self-contained Matroska file (reset_timestamps), so a long capture
+        // stays manageable and survives a crash. Stream-copy can only cut on
+        // keyframes, so a segment ends on the first keyframe after the interval
+        // rather than exactly on it. Report the folder as the target since the
+        // recording now spans many files.
+        const QString pattern =
+            dir.absoluteFilePath(QStringLiteral("%1_%2_%03d.mkv").arg(base, stamp));
+        args << QStringLiteral("-f") << QStringLiteral("segment")
+             << QStringLiteral("-segment_time") << QString::number(segmentSeconds)
+             << QStringLiteral("-segment_format") << QStringLiteral("matroska")
+             << QStringLiteral("-reset_timestamps") << QStringLiteral("1")
+             << QStringLiteral("-y") << pattern;
+        m_outputFile = dir.absolutePath();
+    } else {
+        m_outputFile = dir.absoluteFilePath(QStringLiteral("%1_%2.mkv").arg(base, stamp));
+        args << QStringLiteral("-f") << QStringLiteral("matroska")
+             << QStringLiteral("-y") << m_outputFile;
+    }
+    emit outputFileChanged(m_outputFile);
 
     m_stopRequested = false;
     m_process = new QProcess(this);

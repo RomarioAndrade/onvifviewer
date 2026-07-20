@@ -37,6 +37,7 @@ OnvifDeviceManager::OnvifDeviceManager(QObject* parent) :
     QSettings settings;
     m_recordingFolder = settings.value("recording/folder",
         QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+    m_recordingSegmentMinutes = settings.value("recording/segmentMinutes", 15).toInt();
 }
 
 QString OnvifDeviceManager::recordingFolder() const
@@ -58,6 +59,25 @@ void OnvifDeviceManager::setRecordingFolder(const QString& folder)
     QSettings settings;
     settings.setValue("recording/folder", path);
     emit recordingFolderChanged(m_recordingFolder);
+}
+
+int OnvifDeviceManager::recordingSegmentMinutes() const
+{
+    return m_recordingSegmentMinutes;
+}
+
+void OnvifDeviceManager::setRecordingSegmentMinutes(int minutes)
+{
+    if (minutes < 0) {
+        minutes = 0;
+    }
+    if (m_recordingSegmentMinutes == minutes) {
+        return;
+    }
+    m_recordingSegmentMinutes = minutes;
+    QSettings settings;
+    settings.setValue("recording/segmentMinutes", minutes);
+    emit recordingSegmentMinutesChanged(m_recordingSegmentMinutes);
 }
 
 void OnvifDeviceManager::loadDevices()

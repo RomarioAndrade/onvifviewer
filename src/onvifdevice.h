@@ -115,8 +115,9 @@ public:
     QString recordingError() const;
 
     // Start recording the current stream into `folder` (empty = default Movies
-    // folder). No-op for Sofia devices. stopRecording finalizes the file.
-    Q_INVOKABLE void startRecording(const QString& folder = QString());
+    // folder). `segmentSeconds` > 0 splits the capture into files of that length.
+    // No-op for Sofia devices. stopRecording finalizes the file.
+    Q_INVOKABLE void startRecording(const QString& folder = QString(), int segmentSeconds = 0);
     Q_INVOKABLE void stopRecording();
 
     void initByUrl(const QUrl& url);

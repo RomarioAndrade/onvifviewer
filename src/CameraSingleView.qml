@@ -110,7 +110,7 @@ Item {
                     if (selectedDevice.isRecording)
                         selectedDevice.stopRecording()
                     else
-                        selectedDevice.startRecording(deviceManager.recordingFolder)
+                        selectedDevice.startRecording(deviceManager.recordingFolder, deviceManager.recordingSegmentMinutes * 60)
                 }
                 QQC2.ToolTip.text: text
                 QQC2.ToolTip.visible: hovered

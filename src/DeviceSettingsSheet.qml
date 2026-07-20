@@ -257,6 +257,20 @@ Kirigami.OverlaySheet {
                     onClicked: recordingFolderDialog.open()
                 }
             }
+            SpinBox {
+                Kirigami.FormData.label: i18n("Split every:")
+                visible: !sheet.isSofia
+                from: 0
+                to: 180
+                stepSize: 5
+                editable: false
+                value: deviceManager.recordingSegmentMinutes
+                onValueModified: deviceManager.recordingSegmentMinutes = value
+                // 0 disables splitting; otherwise show the length in minutes.
+                textFromValue: function(value, locale) {
+                    return value === 0 ? i18n("Don't split") : i18n("%1 min", value)
+                }
+            }
             Kirigami.Separator {
                 Kirigami.FormData.isSection: true
                 Kirigami.FormData.label: i18n("Camera properties")
