@@ -25,6 +25,8 @@
 class WSDiscoveryClient;
 class WSDiscoveryProbeJob;
 class WSDiscoveryTargetService;
+class SofiaDiscovery;
+class QHostAddress;
 
 class OnvifDeviceDiscoverMatch : public QObject
 {
@@ -34,18 +36,22 @@ class OnvifDeviceDiscoverMatch : public QObject
     Q_PROPERTY(QString endpoint READ getEndpoint CONSTANT)
     Q_PROPERTY(QUrl xAddr READ getXAddr CONSTANT)
     Q_PROPERTY(QString host READ getHost CONSTANT)
+    Q_PROPERTY(QString deviceType READ getDeviceType CONSTANT)
 public:
     QString getName() const;
     QString getHardware() const;
     QString getEndpoint() const;
     QUrl getXAddr() const;
     QString getHost() const;
+    QString getDeviceType() const;
 
 protected:
     QString m_name;
     QString m_hardware;
     QString m_endpoint;
     QUrl m_xAddr;
+    QString m_host;
+    QString m_deviceType = QStringLiteral("onvif");
     QDateTime m_lastSeen;
 
     friend class OnvifDeviceDiscover;
@@ -69,10 +75,13 @@ public slots:
 
 private slots:
     void matchReceived(const WSDiscoveryTargetService& matchedService);
+    void sofiaDeviceFound(const QString& mac, const QString& hostName,
+                          const QHostAddress& address, quint16 tcpPort);
 
 private:
     WSDiscoveryClient* m_client;
     WSDiscoveryProbeJob* m_probeJob;
+    SofiaDiscovery* m_sofiaDiscovery;
     QMap<QString, OnvifDeviceDiscoverMatch*> m_matchMap;
 };
 

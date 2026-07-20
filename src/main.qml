@@ -1,6 +1,6 @@
-﻿/* Copyright (C) 2018-2019 Casper Meijn <casper@meijn.net>
+/* Copyright (C) 2018-2019 Casper Meijn <casper@meijn.net>
  * SPDX-License-Identifier: GPL-3.0-or-later
- * 
+ *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
@@ -21,54 +21,28 @@ import net.meijn.onvifviewer 1.0
 Kirigami.ApplicationWindow {
     id: root
 
-    property int selectedIndex: 0
+    width: Kirigami.Units.gridUnit * 62
+    height: Kirigami.Units.gridUnit * 36
+    minimumWidth: Kirigami.Units.gridUnit * 36
+    minimumHeight: Kirigami.Units.gridUnit * 22
+
+    // -1 shows every camera in a grid; >= 0 shows that camera large.
+    property int selectedIndex: -1
+    readonly property OnvifDevice selectedDevice: deviceManager.at(selectedIndex)
     property OnvifDevice previewDevice: null
 
     onPreviewDeviceChanged: {
         if(previewDevice) {
             selectedIndex = deviceManager.indexOf(previewDevice);
-            pageStack.push(deviceViewerComponent);
         }
     }
 
-    contextDrawer: Kirigami.ContextDrawer {
-        id: contextDrawer
-    }
+    // The whole UI lives on a single page: camera list on the left, video on
+    // the right. Only the "About" page is ever stacked on top (as a layer).
+    pageStack.initialPage: MainPage {}
 
-    // Always show a header toolbar with a back button on pushed pages,
-    // so it is always possible to navigate back to the previous screen.
-    pageStack.globalToolBar.style: Kirigami.ApplicationHeaderStyle.ToolBar
-    pageStack.globalToolBar.showNavigationButtons: Kirigami.ApplicationHeaderStyle.ShowBackButton
-
-    pageStack.initialPage: overviewComponent
-    Component {
-        id: deviceViewerComponent
-        DeviceViewerPage{}
-    }
-    Component {
-        id: settingsComponent
-        DeviceSettingsPage{}
-    }
-    Component {
-        id: overviewComponent
-        OverviewPage{}
-    }
-    Component {
-        id: mosaicComponent
-        MosaicPage{}
-    }
-    Component {
-        id: addDemoCameraComponent
-        AddDemoCamera{}
-    }
-    Component {
-        id: discoverCameraComponent
-        DiscoverCamera{}
-    }
-    
     Component {
         id: aboutComponent
         AboutPage{}
     }
 }
-

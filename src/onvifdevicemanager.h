@@ -26,6 +26,12 @@ class OnvifDeviceManager : public QObject
     Q_OBJECT
     Q_PROPERTY(QList<OnvifDevice*> deviceList READ deviceList NOTIFY deviceListChanged)
     Q_PROPERTY(int size READ size NOTIFY deviceListChanged)
+    // Folder where recordings are written, shared by all cameras. Persisted in
+    // QSettings; defaults to the user's Movies location.
+    Q_PROPERTY(QString recordingFolder READ recordingFolder WRITE setRecordingFolder NOTIFY recordingFolderChanged)
+    // Length of each recording segment in minutes, shared by all cameras.
+    // Persisted in QSettings; 0 means "don't split" (one continuous file).
+    Q_PROPERTY(int recordingSegmentMinutes READ recordingSegmentMinutes WRITE setRecordingSegmentMinutes NOTIFY recordingSegmentMinutesChanged)
 public:
     explicit OnvifDeviceManager(QObject* parent = nullptr);
 
@@ -36,10 +42,18 @@ public:
     Q_INVOKABLE int indexOf(OnvifDevice* device);
     int size();
 
+    QString recordingFolder() const;
+    void setRecordingFolder(const QString& folder);
+
+    int recordingSegmentMinutes() const;
+    void setRecordingSegmentMinutes(int minutes);
+
     OnvifDevice* createNewDevice();
 
 signals:
     void deviceListChanged(const QList<OnvifDevice*>& deviceList);
+    void recordingFolderChanged(const QString& recordingFolder);
+    void recordingSegmentMinutesChanged(int recordingSegmentMinutes);
 
 public slots:
     void loadDevices();
@@ -47,6 +61,8 @@ public slots:
 
 private:
     QList<OnvifDevice*> m_deviceList;
+    QString m_recordingFolder;
+    int m_recordingSegmentMinutes = 15;
 };
 
 #endif // ONVIFDEVICEMANAGER_H

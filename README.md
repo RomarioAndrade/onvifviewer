@@ -22,33 +22,25 @@ Before this project started, there was no open-source application for viewing ON
 
 ## Current state
 
-I stopped development on this project. I was fun to create this application, but I don't have a usecase for my camera anymore. Therefore I have lost interest in adding new features. 
+This fork is under active development. The application has been ported to Qt6
+and KDE Frameworks 6 (KF6), and the focus is on making the viewer work with
+real-world IP cameras — including the many models that don't fully comply with
+the ONVIF specification.
 
-I also found out that most bugs reported are from cameras that don't comply to the ONVIF specification. As I don't have such camera available it is not possible to fix that issue. This left multiple issue unsolved. This is not motivating me.
+Features added in this fork include automatic discovery of cameras on the LAN, a
+single-screen UI with a camera sidebar, per-camera stream transport and video
+profile selection, press-and-hold PTZ control, snapshot download, an audio
+preview with a mute toggle, and recording ONVIF streams to disk (optionally
+split into time-based segments).
 
-Also I had difficulties releasing this as full free software, because of the non-free license of the ONVIF specification itself. 
+The original author, Casper Meijn, stopped development on the upstream project;
+this fork picks it back up. Contributions are welcome — feel free to open an
+issue or send a merge/pull request.
 
-Feel free to send in merge request for your own developments.
-
-## Flatpak
-On most Linux desktops you can install the application using Flatpak. 
-
-1) First install Flatpak itself using the instructions on their [website](https://www.flatpak.org/setup/).
-2) Then you can install the application from the [ONVIFViewer flathub page](https://flathub.org/apps/details/net.meijn.onvifviewer).
-
-[<img width='240' alt='Download on Flathub' src='https://flathub.org/assets/badges/flathub-badge-en.png'/>](https://flathub.org/apps/details/net.meijn.onvifviewer)
-      
 ## Translations
 You can help translating this application using [Weblate](https://hosted.weblate.org/engage/onvifviewer/). You can login on the website and translate the texts to your language. The translations will be included in the next release.
 
 [<img src="https://hosted.weblate.org/widgets/onvifviewer/-/287x66-grey.png" alt="Vertalingsstatus" />](https://hosted.weblate.org/engage/onvifviewer/?utm_source=widget)
-
-## Donations
-You can donate via Bitcoin at [15PerwiiGxPf27AxVTYq7hGYJ52WfM9EWo](bitcoin:15PerwiiGxPf27AxVTYq7hGYJ52WfM9EWo).
-
-You can donate via PayPal via: [<img src="https://www.paypalobjects.com/nl_NL/NL/i/btn/btn_donateCC_LG.gif" alt="Donate" />](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=RNGGP3C6J84QU)
-
-You can donate via LiberaPay via: [<img alt="Donate using Liberapay" src="https://liberapay.com/assets/widgets/donate.svg" />](https://liberapay.com/caspermeijn/donate)
 
 ## Building from source
 It is also possible to build the application yourself. This requires Qt6, KDE Frameworks 6 (KF6), Kirigami and KDSoap to be installed.
@@ -123,16 +115,6 @@ reference frames (you will see `RTP: missed N packets` in the terminal). It is
 most common with UDP transport. Open the camera's **Settings** and change
 **Stream transport** to **TCP (RTSP)**, which retransmits lost packets. If the
 camera does not honour that, try **RTSP over HTTP**.
-
-### Build artifacts ended up in the source tree
-
-Always build **out of source** (into a separate directory such as
-`build-onvifviewer`), as shown above. If you accidentally ran `cmake` from the
-project root, review what would be removed first (dry run), then delete it —
-keeping your build directory:
-
-    git clean -ndx -e build-onvifviewer    # preview only
-    git clean -fdx -e build-onvifviewer    # actually remove
 
 ## Attribution 
 Google Play and the Google Play logo are trademarks of Google LLC.

@@ -206,7 +206,32 @@ void OnvifMedia2ServicePrivate::getSnapshotUriDone(const TR2__GetSnapshotUriResp
 
 void OnvifMedia2ServicePrivate::getSnapshotUriError(const KDSoapMessage& fault)
 {
-    device->d_ptr->handleSoapError(fault, Q_FUNC_INFO_AS_STRING);
+    Q_Q(OnvifMedia2Service);
+
+    // Mirror getStreamUriError: some cameras return invalid XML (an unescaped
+    // '&' in the snapshot URL) that KDSoap refuses to parse. Retry the request
+    // with a lenient parser; only if that also fails do we report the original
+    // error. Without this, a malformed snapshot reply on a profile switch would
+    // reach handleSoapError and tear the whole connection down.
+    const QString body = QStringLiteral(
+        "<tr2:GetSnapshotUri xmlns:tr2=\"http://www.onvif.org/ver20/media/wsdl\">"
+        "<tr2:ProfileToken>%1</tr2:ProfileToken></tr2:GetSnapshotUri>")
+        .arg(selectedProfile.token());
+
+    const QString location = Q_FUNC_INFO_AS_STRING;
+    device->d_ptr->fetchUriWithLeniency(
+        soapService.clientInterface()->endPoint(), body,
+        [this, q](const QUrl& url) {
+            snapshotUri = url;
+            device->d_ptr->updateUrlHost(&snapshotUri);
+            if (snapshotUri.userInfo().isEmpty()) {
+                device->d_ptr->updateUrlCredentials(&snapshotUri);
+            }
+            emit q->snapshotUriAvailable(snapshotUri);
+        },
+        [this, fault, location]() {
+            device->d_ptr->handleSoapError(fault, location);
+        });
 }
 
 void OnvifMedia2ServicePrivate::getStreamUriDone(const TR2__GetStreamUriResponse& parameters)

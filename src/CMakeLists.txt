@@ -21,6 +21,7 @@ set(${PROJECT_NAME}_SRCS
     "onvifdevicediscover.cpp"
     "onvifdevicemanager.cpp"
     "onvifdevicemanagermodel.cpp"
+    "onvifrecorder.cpp"
     "onvifsnapshotdownloader.cpp"
     "onvifsnapshotviewer.cpp"
     "qml.qrc"
@@ -29,7 +30,7 @@ set(${PROJECT_NAME}_SRCS
 ecm_setup_version(PROJECT VERSION_HEADER version.h)
 add_executable(${PROJECT_NAME} ${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_WSDL} ${${PROJECT_NAME}_BREEZE_ICONS})
 
-target_link_libraries(${PROJECT_NAME} Qt6::Core Qt6::Svg Qt6::Quick Qt6::QuickControls2 KF6::CoreAddons KF6::Kirigami KF6::I18n KDSoap::kdsoap libOnvifConnect)
+target_link_libraries(${PROJECT_NAME} Qt6::Core Qt6::Network Qt6::Svg Qt6::Quick Qt6::QuickControls2 KF6::CoreAddons KF6::Kirigami KF6::I18n KDSoap::kdsoap libOnvifConnect)
 if(KF6XmlGui_FOUND)
     target_link_libraries(${PROJECT_NAME} KF6::XmlGui)
 endif()

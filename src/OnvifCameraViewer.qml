@@ -24,6 +24,9 @@ Item {
     property int snapshotInterval: 1000
     property real aspectRatio: snapshotViewer.aspectRatio
     property bool loadStream: true
+    // Preview audio, off by default (kept muted in the grid; the single view
+    // exposes a toggle). Only the ONVIF backend carries an audio track.
+    property alias muted: streamViewer.muted
 
     // The stream sits at the bottom of the stack and must stay "visible" (part
     // of the scene) even before the first frame arrives. Qt6 only runs the

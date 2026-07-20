@@ -16,6 +16,7 @@
  */
 #include "sofiamediaserver.h"
 #include "sofiavideostream.h"
+#include "sofiaconnection.h"
 #include "mpegtsmuxer.h"
 
 #include <QTcpServer>
@@ -50,7 +51,32 @@ void SofiaMediaServer::setCredentials(const QString& username, const QString& pa
 
 void SofiaMediaServer::setStream(const QString& streamType)
 {
-    m_stream->setStream(streamType);
+    const QString type = streamType.isEmpty() ? QStringLiteral("Main") : streamType;
+    if (type == m_stream->stream()) {
+        return;
+    }
+    m_stream->setStream(type);
+    if (m_upstreamRunning) {
+        // Live switch: reopen the upstream on the new stream and hold every
+        // client to its next key frame (which also re-sends PAT/PMT). The PTS
+        // keeps counting up so the TS timeline stays monotonic.
+        m_stream->stop();
+        m_ready.clear();
+        m_stream->start();
+    }
+}
+
+void SofiaMediaServer::setControlConnection(SofiaConnection* control)
+{
+    if (m_control) {
+        disconnect(m_control, &SofiaConnection::snapshotReady,
+                   this, &SofiaMediaServer::onSnapshotReady);
+    }
+    m_control = control;
+    if (m_control) {
+        connect(m_control, &SofiaConnection::snapshotReady,
+                this, &SofiaMediaServer::onSnapshotReady);
+    }
 }
 
 QString SofiaMediaServer::start()
@@ -72,8 +98,12 @@ void SofiaMediaServer::stop()
     for (QTcpSocket* c : std::as_const(m_clients)) {
         c->disconnectFromHost();
     }
+    for (QTcpSocket* c : std::as_const(m_snapshotClients)) {
+        c->disconnectFromHost();
+    }
     m_clients.clear();
     m_ready.clear();
+    m_snapshotClients.clear();
 }
 
 QString SofiaMediaServer::url() const
@@ -84,10 +114,15 @@ QString SofiaMediaServer::url() const
     return QStringLiteral("http://127.0.0.1:%1/").arg(m_server->serverPort());
 }
 
+QString SofiaMediaServer::snapshotUrl() const
+{
+    const QString base = url();
+    return base.isEmpty() ? QString() : base + QStringLiteral("snapshot.jpg");
+}
+
 void SofiaMediaServer::startUpstreamIfNeeded()
 {
     if (!m_upstreamRunning) {
-        m_pts = 0;
         m_muxer->reset();
         m_stream->start();
         m_upstreamRunning = true;
@@ -97,16 +132,64 @@ void SofiaMediaServer::startUpstreamIfNeeded()
 void SofiaMediaServer::onNewConnection()
 {
     while (QTcpSocket* client = m_server->nextPendingConnection()) {
+        // Wait for the request line before routing: "/snapshot.jpg" is a still
+        // image, anything else is the live MPEG-TS video.
+        connect(client, &QTcpSocket::readyRead, this, &SofiaMediaServer::onClientReadyRead);
         connect(client, &QTcpSocket::disconnected, this, &SofiaMediaServer::onClientDisconnected);
-        // The player issues a GET; we don't need to parse it. Reply immediately
-        // with a never-ending MPEG-TS body.
-        client->write("HTTP/1.0 200 OK\r\n"
-                      "Content-Type: video/mp2t\r\n"
-                      "Cache-Control: no-cache\r\n"
-                      "Connection: close\r\n\r\n");
-        m_clients.insert(client);
-        startUpstreamIfNeeded();
     }
+}
+
+void SofiaMediaServer::onClientReadyRead()
+{
+    QTcpSocket* client = qobject_cast<QTcpSocket*>(sender());
+    if (!client) {
+        return;
+    }
+    const QByteArray head = client->peek(2048);
+    const int eol = head.indexOf("\r\n");
+    if (eol < 0) {
+        return; // request line not complete yet
+    }
+    const QByteArray requestLine = head.left(eol);
+    disconnect(client, &QTcpSocket::readyRead, this, &SofiaMediaServer::onClientReadyRead);
+    client->readAll();
+
+    if (requestLine.contains("/snapshot")) {
+        if (m_control && m_control->isLoggedIn()) {
+            m_snapshotClients.insert(client);
+            m_control->requestSnapshot();
+        } else {
+            client->write("HTTP/1.0 503 Service Unavailable\r\n"
+                          "Connection: close\r\n\r\n");
+            client->disconnectFromHost();
+        }
+        return;
+    }
+
+    // Live video: reply with a never-ending MPEG-TS body.
+    client->write("HTTP/1.0 200 OK\r\n"
+                  "Content-Type: video/mp2t\r\n"
+                  "Cache-Control: no-cache\r\n"
+                  "Connection: close\r\n\r\n");
+    m_clients.insert(client);
+    startUpstreamIfNeeded();
+}
+
+void SofiaMediaServer::onSnapshotReady(const QByteArray& jpeg)
+{
+    if (m_snapshotClients.isEmpty() || jpeg.isEmpty()) {
+        return;
+    }
+    const QByteArray resp = "HTTP/1.0 200 OK\r\n"
+                            "Content-Type: image/jpeg\r\n"
+                            "Content-Length: " + QByteArray::number(jpeg.size()) + "\r\n"
+                            "Cache-Control: no-cache\r\n"
+                            "Connection: close\r\n\r\n" + jpeg;
+    for (QTcpSocket* c : std::as_const(m_snapshotClients)) {
+        c->write(resp);
+        c->disconnectFromHost();
+    }
+    m_snapshotClients.clear();
 }
 
 void SofiaMediaServer::onClientDisconnected()
@@ -117,6 +200,7 @@ void SofiaMediaServer::onClientDisconnected()
     }
     m_clients.remove(client);
     m_ready.remove(client);
+    m_snapshotClients.remove(client);
     client->deleteLater();
     if (m_clients.isEmpty()) {
         m_stream->stop();
@@ -134,27 +218,25 @@ void SofiaMediaServer::onVideoFrame(const QByteArray& nal, bool keyFrame)
     if (m_clients.isEmpty()) {
         return;
     }
-    if (m_fps <= 0) {
-        m_fps = 25;
+    // Stamp each frame with its real arrival time (90 kHz units). The clock
+    // keeps running across upstream restarts so the timeline stays monotonic.
+    if (!m_clock.isValid()) {
+        m_clock.start();
     }
-    const int streamFps = m_stream->fps();
-    if (streamFps > 0) {
-        m_fps = streamFps;
-    }
+    const quint64 pts = quint64(m_clock.elapsed()) * 90;
 
     if (keyFrame) {
         // A key frame is a clean entry point: (re)send PAT/PMT so late joiners
         // can start decoding, and promote them to "ready".
-        const QByteArray pkt = m_muxer->patPmt() + m_muxer->muxAccessUnit(nal, true, m_pts);
+        const QByteArray pkt = m_muxer->patPmt() + m_muxer->muxAccessUnit(nal, true, pts);
         for (QTcpSocket* c : std::as_const(m_clients)) {
             c->write(pkt);
             m_ready.insert(c);
         }
     } else {
-        const QByteArray pkt = m_muxer->muxAccessUnit(nal, false, m_pts);
+        const QByteArray pkt = m_muxer->muxAccessUnit(nal, false, pts);
         for (QTcpSocket* c : std::as_const(m_ready)) {
             c->write(pkt);
         }
     }
-    m_pts += 90000 / m_fps;
 }

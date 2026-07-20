@@ -51,6 +51,7 @@ set(libOnvifConnect_SRCS
     onvifdeviceinformation.cpp
     onvifmediaprofile.cpp
     sofiaconnection.cpp
+    sofiadiscovery.cpp
     sofiavideostream.cpp
     mpegtsmuxer.cpp
     sofiamediaserver.cpp

@@ -21,6 +21,7 @@
 #include "onvifmediaprofile.h"
 #include "onvifdeviceinformation.h"
 #include "onvifsnapshotdownloader.h"
+#include "onvifrecorder.h"
 #include <QTimer>
 #include <QObject>
 #include <QUrl>
@@ -54,6 +55,12 @@ class OnvifDevice : public QObject
     Q_PROPERTY(OnvifSnapshotDownloader* snapshotDownloader READ snapshotDownloader NOTIFY snapshotDownloaderChanged)
     Q_PROPERTY(QVariantList profiles READ profiles NOTIFY profilesChanged)
     Q_PROPERTY(QString selectedProfileToken READ selectedProfileToken WRITE setSelectedProfileToken NOTIFY selectedProfileTokenChanged)
+    // Recording (ONVIF only): drives an ffmpeg subprocess that stream-copies the
+    // RTSP feed to a file. canRecord gates the UI to connected ONVIF cameras.
+    Q_PROPERTY(bool canRecord READ canRecord NOTIFY canRecordChanged)
+    Q_PROPERTY(bool isRecording READ isRecording NOTIFY isRecordingChanged)
+    Q_PROPERTY(QString recordingFile READ recordingFile NOTIFY recordingFileChanged)
+    Q_PROPERTY(QString recordingError READ recordingError NOTIFY recordingErrorChanged)
 public:
     explicit OnvifDevice(QObject* parent = nullptr);
 
@@ -102,6 +109,17 @@ public:
     QString selectedProfileToken() const;
     void setSelectedProfileToken(const QString& token);
 
+    bool canRecord() const;
+    bool isRecording() const;
+    QString recordingFile() const;
+    QString recordingError() const;
+
+    // Start recording the current stream into `folder` (empty = default Movies
+    // folder). `segmentSeconds` > 0 splits the capture into files of that length.
+    // No-op for Sofia devices. stopRecording finalizes the file.
+    Q_INVOKABLE void startRecording(const QString& folder = QString(), int segmentSeconds = 0);
+    Q_INVOKABLE void stopRecording();
+
     void initByUrl(const QUrl& url);
 
 signals:
@@ -123,6 +141,10 @@ signals:
     void ptzCapabilitiesChanged();
     void profilesChanged();
     void selectedProfileTokenChanged(const QString& token);
+    void canRecordChanged(bool canRecord);
+    void isRecordingChanged(bool isRecording);
+    void recordingFileChanged(const QString& recordingFile);
+    void recordingErrorChanged(const QString& recordingError);
 
 public slots:
     void ptzUp();
@@ -130,6 +152,8 @@ public slots:
     void ptzLeft();
     void ptzRight();
     void ptzMove(float xFraction, float yFraction);
+    void ptzStartMove(float xFraction, float yFraction);
+    void ptzStartZoom(float direction);
     void ptzHome();
     void ptzSaveHomePosition();
     void ptzStop();
@@ -143,14 +167,16 @@ private slots:
 
 private:
     bool isSofia() const { return m_deviceType == QLatin1String("sofia"); }
+    QString sofiaStreamType() const;
     void ensureSofia();
-    void sofiaPtz(const QString& command);
+    void sofiaPtz(const QString& command, bool hold = false);
 
     OnvifDeviceConnection m_connection;
     QString m_deviceType = QStringLiteral("onvif");
     SofiaConnection* m_sofia = nullptr;       // native PTZ/control (lazy)
     SofiaMediaServer* m_sofiaMedia = nullptr; // native video → local HTTP (lazy)
     QString m_sofiaLastPtz;                    // command to send Stop for
+    bool m_ptzActive = false;                  // a continuous move needs a Stop
     QString m_deviceName;
     QString m_hostName;
     QString m_userName;
@@ -167,6 +193,7 @@ private:
     OnvifDeviceInformation* m_cachedDeviceInformation;
     QTimer m_ptzStopTimer;
     OnvifSnapshotDownloader* m_cachedSnapshotDownloader;
+    OnvifRecorder* m_recorder;
 };
 
 #endif // ONVIFDEVICE_H

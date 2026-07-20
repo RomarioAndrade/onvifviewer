@@ -21,6 +21,9 @@ Item {
     id: viewer
 
     property alias streamUri: video.source
+    // Preview audio, off by default. ONVIF RTSP streams carry the camera's
+    // audio track; the caller flips this to let the user hear it.
+    property bool muted: true
     property bool hasError: video.error !== MediaPlayer.NoError
 
     function isStreamAvailable() {
@@ -38,7 +41,7 @@ Item {
         id: video
         videoOutput: videoOutput
         audioOutput: AudioOutput {
-            muted: true
+            muted: viewer.muted
         }
         onSourceChanged: {
             if (source != "")

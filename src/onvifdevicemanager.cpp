@@ -25,12 +25,59 @@
 #endif
 #include <QPointer>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QUrl>
 #include <QQmlContext>
 
 OnvifDeviceManager::OnvifDeviceManager(QObject* parent) :
     QObject(parent)
 {
     qRegisterMetaType<QList<OnvifDevice*>> ("QList<OnvifDevice*>");
+
+    QSettings settings;
+    m_recordingFolder = settings.value("recording/folder",
+        QStandardPaths::writableLocation(QStandardPaths::MoviesLocation)).toString();
+    m_recordingSegmentMinutes = settings.value("recording/segmentMinutes", 15).toInt();
+}
+
+QString OnvifDeviceManager::recordingFolder() const
+{
+    return m_recordingFolder;
+}
+
+void OnvifDeviceManager::setRecordingFolder(const QString& folder)
+{
+    QString path = folder;
+    // The QML FolderDialog hands back a file:// URL; store a plain local path.
+    if (path.startsWith(QLatin1String("file://"))) {
+        path = QUrl(path).toLocalFile();
+    }
+    if (m_recordingFolder == path) {
+        return;
+    }
+    m_recordingFolder = path;
+    QSettings settings;
+    settings.setValue("recording/folder", path);
+    emit recordingFolderChanged(m_recordingFolder);
+}
+
+int OnvifDeviceManager::recordingSegmentMinutes() const
+{
+    return m_recordingSegmentMinutes;
+}
+
+void OnvifDeviceManager::setRecordingSegmentMinutes(int minutes)
+{
+    if (minutes < 0) {
+        minutes = 0;
+    }
+    if (m_recordingSegmentMinutes == minutes) {
+        return;
+    }
+    m_recordingSegmentMinutes = minutes;
+    QSettings settings;
+    settings.setValue("recording/segmentMinutes", minutes);
+    emit recordingSegmentMinutesChanged(m_recordingSegmentMinutes);
 }
 
 void OnvifDeviceManager::loadDevices()
@@ -95,6 +142,10 @@ QList<OnvifDevice*> OnvifDeviceManager::deviceList() const
 
 OnvifDevice* OnvifDeviceManager::at(int i)
 {
+    // The UI uses -1 for "no camera selected" (grid view); be lenient.
+    if (i < 0 || i >= m_deviceList.size()) {
+        return nullptr;
+    }
     return m_deviceList.at(i);
 }
 

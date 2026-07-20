@@ -21,6 +21,8 @@ Item {
     id: viewer
 
     property alias streamUri: video.source
+    // Preview audio, off by default; the caller flips this to unmute.
+    property bool muted: true
     property bool hasError: video.error !== MediaPlayer.NoError
 
     function isStreamAvailable() {
@@ -36,7 +38,7 @@ Item {
 
     Video {
         id: video
-        muted: true
+        muted: viewer.muted
         anchors.fill: parent
 
         autoLoad: true
